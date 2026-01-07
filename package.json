@@ -1,0 +1,21 @@
+{
+  "name": "punctoo-scantag-demo-v2",
+  "version": "1.0.0",
+  "description": "PUNCTOO ScanTag demo v2 (Postgres-first)",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "qr": "node scripts/generate-qr.js"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "express": "^5.2.1",
+    "pdfkit": "^0.17.2",
+    "pg": "^8.12.0",
+    "qrcode": "^1.5.4"
+  }
+}

@@ -8,6 +8,8 @@ const scanRouter = require("./routes/scan");
 const pairRouter = require("./routes/pair");
 const scantagPdfRouter = require("./routes/scantagPdf");
 const setupRouter = require("./routes/setup");
+const adminRouter = require("./routes/admin");
+
 
 
 function createApp() {
@@ -39,6 +41,8 @@ function createApp() {
   app.use(pairRouter);
   app.use(scantagPdfRouter);
   app.use(setupRouter);
+  app.use(adminRouter);
+
 
   // 404
   app.use((req, res) => {

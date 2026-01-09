@@ -7,6 +7,7 @@ const tagsRouter = require("./routes/tags");
 const scanRouter = require("./routes/scan");
 const pairRouter = require("./routes/pair");
 const scantagPdfRouter = require("./routes/scantagPdf");
+const setupRouter = require("./routes/setup");
 
 
 function createApp() {
@@ -26,7 +27,7 @@ function createApp() {
           <h1>PUNCTOO ScanTag Demo (Pilot)</h1>
           <p class="muted">Beperkt tot 1 bedrijf en 2 werknemers.</p>
           <div class="row">
-            <a class="btn" href="/tags">Genereer QR’s</a>
+            <a class="btn" href="/setup">Start setup</a>
           </div>
         </div>`
       )
@@ -37,6 +38,7 @@ function createApp() {
   app.use(scanRouter);
   app.use(pairRouter);
   app.use(scantagPdfRouter);
+  app.use(setupRouter);
 
   // 404
   app.use((req, res) => {

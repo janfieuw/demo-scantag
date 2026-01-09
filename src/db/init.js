@@ -1,4 +1,4 @@
-const { run, get } = require("./index");
+const { run } = require("./index");
 
 async function initDb() {
   await run(`
@@ -48,15 +48,6 @@ async function initDb() {
 
   await run(`CREATE INDEX IF NOT EXISTS idx_device_bindings_token ON device_bindings(token);`);
   await run(`CREATE INDEX IF NOT EXISTS idx_scan_events_employee ON scan_events(employee_id);`);
-
-  // Seed (pilot): 1 bedrijf + 2 werknemers + 1 tag
-  const c = await get(`SELECT COUNT(*)::int AS n FROM companies;`);
-  if ((c?.n || 0) > 0) return;
-
-  await run(`INSERT INTO companies (name) VALUES ($1)`, ["PUNCTOO DEMO"]);
-  await run(`INSERT INTO employees (company_id, code) VALUES (1,'WERKNEMER1')`);
-  await run(`INSERT INTO employees (company_id, code) VALUES (1,'WERKNEMER2')`);
-  await run(`INSERT INTO scantags (company_id, name) VALUES (1,'ScanTag DEMO')`);
 }
 
 module.exports = { initDb };

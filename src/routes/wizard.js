@@ -146,7 +146,7 @@ router.get("/wizard/employees", async (req, res) => {
         <h1>2) Voeg twee werknemers toe</h1>
         <p class="muted">
           Vul de naam in van de werknemer. Na toevoegen wordt automatisch een <b>activatiecode</b> gegenereerd.
-          Deze code gebruik je straks om de ffsmartphone te <b>activeren</b>.
+          Deze code gebruik je straks om de smartphone te <b>activeren</b>.
         </p>
         <p class="muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
 

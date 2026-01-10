@@ -61,7 +61,7 @@ router.get("/wizard/company", async (req, res) => {
       layout(
         "Wizard - Onderneming",
         `<div class="card">
-          <h1>1) Voeg onderneming toe</h1>
+          <h1>1) Voeg jouw onderneming toe</h1>
           <p class="muted">Pilot: 1 onderneming, 2 werknemers.</p>
 
           <p>Huidige onderneming: <b>${escapeHtml(company.name)}</b></p>

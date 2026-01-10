@@ -2,7 +2,7 @@ const { Pool } = require("pg");
 const { DATABASE_URL, IS_PROD } = require("../config");
 
 if (!DATABASE_URL) {
-  console.error("❌ DATABASE_URL ontbreekt. Zet dit in Railway Variables (of lokaal).");
+  console.error("❌ DATABASE_URL ontbreekt. Zet dit in Railway Variables.");
   process.exit(1);
 }
 

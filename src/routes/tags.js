@@ -13,43 +13,30 @@ async function makeQrSvg(url) {
   return await QRCode.toString(url, { type: "svg", margin: 1, width: 180 });
 }
 
-async function getCompany() {
-  return await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
-}
-async function employeesCount(companyId) {
-  const row = await get(`SELECT COUNT(*)::int AS n FROM employees WHERE company_id = $1`, [companyId]);
-  return row?.n || 0;
-}
-
 router.get("/tags", async (req, res) => {
-  const company = await getCompany();
+  // wizard guard: bedrijf + 2 werknemers nodig
+  const company = await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
   if (!company) {
     return res.send(
       layout(
-        "Setup nodig",
+        "Wizard nodig",
         `<div class="card">
-          <h1>Eerst setup doen</h1>
-          <p class="muted">Maak eerst 1 bedrijf aan.</p>
-          <div class="row" style="margin-top:14px;">
-            <a class="btn" href="/setup">Ga naar setup</a>
-          </div>
+          <h1>Eerst wizard doorlopen</h1>
+          <p class="muted">Maak eerst een onderneming en 2 werknemers aan.</p>
+          <a class="btn" href="/wizard/company">Start wizard</a>
         </div>`
       )
     );
   }
-
-  const n = await employeesCount(company.id);
-  if (n < 2) {
+  const cnt = await get(`SELECT COUNT(*)::int AS n FROM employees WHERE company_id=$1`, [company.id]);
+  if ((cnt?.n || 0) < 2) {
     return res.send(
       layout(
-        "Setup nodig",
+        "Wizard nodig",
         `<div class="card">
-          <h1>Eerst setup doen</h1>
+          <h1>Eerst wizard doorlopen</h1>
           <p class="muted">Voeg eerst 2 werknemers toe.</p>
-          <div class="row" style="margin-top:14px;">
-            <a class="btn" href="/setup/employees">Werknemers toevoegen</a>
-            <a class="btn secondary" href="/setup">Terug</a>
-          </div>
+          <a class="btn" href="/wizard/employees">Ga naar werknemers</a>
         </div>`
       )
     );
@@ -81,7 +68,7 @@ router.get("/tags", async (req, res) => {
             <div class="muted strong">IN</div>
             <div class="qrbox">${inSvg}</div>
             <div class="muted" style="margin-top:8px; word-break:break-all;">
-              <span class="muted">${escapeHtml(inUrl)}</span>
+              <span>${escapeHtml(inUrl)}</span>
             </div>
           </div>
 
@@ -89,14 +76,14 @@ router.get("/tags", async (req, res) => {
             <div class="muted strong">OUT</div>
             <div class="qrbox">${outSvg}</div>
             <div class="muted" style="margin-top:8px; word-break:break-all;">
-              <span class="muted">${escapeHtml(outUrl)}</span>
+              <span>${escapeHtml(outUrl)}</span>
             </div>
           </div>
         </div>
 
         <div class="row" style="margin-top:14px;">
-          <a class="btn" href="/scantag/${t.tag_id}.pdf">Download ScanTag PDF</a>
-          <a class="btn secondary" href="/setup">Setup</a>
+          <a class="btn secondary" href="/admin">Rapport</a>
+          <a class="btn secondary" href="/wizard/company">Wizard</a>
         </div>
       </div>`;
     })
@@ -106,8 +93,8 @@ router.get("/tags", async (req, res) => {
     layout(
       "Genereer QR’s",
       `<div class="card" style="margin-bottom:14px;">
-         <h1>Genereer QR’s</h1>
-         <p class="muted">QR’s zijn automatisch gegenereerd uit URLs.</p>
+         <h1>3) Genereer QR’s</h1>
+         <p class="muted">De QR’s worden automatisch gegenereerd op basis van de URLs van deze omgeving.</p>
        </div>
        ${blocks.join("")}`
     )

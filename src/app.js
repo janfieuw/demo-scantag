@@ -3,52 +3,42 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const { layout } = require("./ui/layout");
 
+const wizardRouter = require("./routes/wizard");
 const tagsRouter = require("./routes/tags");
 const scanRouter = require("./routes/scan");
-const pairRouter = require("./routes/pair");
-const scantagPdfRouter = require("./routes/scantagPdf");
-const setupRouter = require("./routes/setup");
 const adminRouter = require("./routes/admin");
-const wizardRouter = require("./routes/wizard");
-
-
-
 
 function createApp() {
   const app = express();
 
+  app.set("trust proxy", 1);
+
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
 
-  // Static styles
   app.use("/static", express.static(path.join(__dirname, "styles")));
 
   app.get("/", (req, res) => {
     res.send(
       layout(
-        "PUNCTOO Demo",
+        "PUNCTOO Demo (Pilot)",
         `<div class="card">
           <h1>PUNCTOO ScanTag Demo (Pilot)</h1>
-          <p class="muted">Beperkt tot 1 bedrijf en 2 werknemers.</p>
+          <p class="muted">Wizard: onderneming → 2 werknemers → QR’s. Activatie via activatiecode.</p>
           <div class="row">
             <a class="btn" href="/wizard/company">Start wizard</a>
+            <a class="btn secondary" href="/admin">Rapport</a>
           </div>
         </div>`
       )
     );
   });
 
+  app.use(wizardRouter);
   app.use(tagsRouter);
   app.use(scanRouter);
-  app.use(pairRouter);
-  app.use(scantagPdfRouter);
-  app.use(setupRouter);
   app.use(adminRouter);
-  app.use(wizardRouter);
 
-
-
-  // 404
   app.use((req, res) => {
     res.status(404).send(layout("404", `<div class="card"><h1>404</h1><p class="muted">Niet gevonden.</p></div>`));
   });

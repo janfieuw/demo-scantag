@@ -7,9 +7,8 @@ async function start() {
   const app = createApp();
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`PUNCTOO demo v2 running (env=${NODE_ENV})`);
+    console.log(`PUNCTOO demo running (env=${NODE_ENV})`);
     console.log(`Listening on 0.0.0.0:${PORT}`);
-    console.log(`Open /tags`);
   });
 }
 

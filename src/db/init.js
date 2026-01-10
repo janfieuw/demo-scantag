@@ -8,13 +8,40 @@ async function initDb() {
     );
   `);
 
+  // Basistabel employees (nieuw model)
   await run(`
     CREATE TABLE IF NOT EXISTS employees (
       id SERIAL PRIMARY KEY,
       company_id INT NOT NULL REFERENCES companies(id),
-      code TEXT NOT NULL,
-      UNIQUE(company_id, code)
+      display_name TEXT,
+      scan_code TEXT
     );
+  `);
+
+  // Migratie-light: als de tabel al bestond met oude kolommen, zorgen we dat nieuwe kolommen bestaan.
+  await run(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS display_name TEXT;`);
+  await run(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS scan_code TEXT;`);
+
+  // Als je vroeger "code" had, kopieer dat naar scan_code (zodat oude rows niet crashen).
+  // (Als kolom 'code' niet bestaat, faalt dit; daarom doen we dit met een DO-block.)
+  await run(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name='employees' AND column_name='code'
+      ) THEN
+        EXECUTE 'UPDATE employees SET scan_code = COALESCE(scan_code, code)';
+      END IF;
+    END $$;
+  `);
+
+  // Unieke scan_code per bedrijf (maar laat NULL toe voor oude data)
+  await run(`
+    CREATE UNIQUE INDEX IF NOT EXISTS employees_company_scan_code_uq
+    ON employees(company_id, scan_code)
+    WHERE scan_code IS NOT NULL;
   `);
 
   await run(`

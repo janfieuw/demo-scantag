@@ -52,6 +52,27 @@ router.post("/wizard/reset", async (req, res) => {
   res.redirect("/wizard/company");
 });
 
+// Smartphone loskoppelen (binding verwijderen) voor 1 werknemer
+router.post("/wizard/employees/unbind", async (req, res) => {
+  const company = await getCompany();
+  if (!company) return res.redirect("/wizard/company");
+
+  const employeeId = Number(req.body.employee_id);
+  if (!employeeId) return res.redirect("/wizard/employees");
+
+  // Safety: werknemer moet tot dit bedrijf behoren
+  const emp = await get(
+    `SELECT id FROM employees WHERE id = $1 AND company_id = $2 LIMIT 1`,
+    [employeeId, company.id]
+  );
+  if (!emp) return res.redirect("/wizard/employees");
+
+  // Loskoppelen = device binding verwijderen
+  await run(`DELETE FROM device_bindings WHERE employee_id = $1`, [employeeId]);
+
+  return res.redirect("/wizard/employees");
+});
+
 // STEP 1
 router.get("/wizard/company", async (req, res) => {
   const company = await getCompany();
@@ -135,6 +156,12 @@ router.get("/wizard/employees", async (req, res) => {
         <td>${i + 1}</td>
         <td>${escapeHtml(e.display_name)}</td>
         <td><code>${escapeHtml(e.scan_code)}</code></td>
+        <td>
+          <form method="POST" action="/wizard/employees/unbind" style="margin:0;">
+            <input type="hidden" name="employee_id" value="${e.id}" />
+            <button class="btn secondary" type="submit">Smartphone loskoppelen</button>
+          </form>
+        </td>
       </tr>`
     )
     .join("");
@@ -151,7 +178,7 @@ router.get("/wizard/employees", async (req, res) => {
         <p class="muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
 
         <table>
-          <thead><tr><th>#</th><th>Naam</th><th>Activatiecode</th></tr></thead>
+          <thead><tr><th>#</th><th>Naam</th><th>Activatiecode</th><th>Actie</th></tr></thead>
           <tbody>${list}</tbody>
         </table>
 

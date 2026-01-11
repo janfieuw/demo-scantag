@@ -1,16 +1,41 @@
 const express = require("express");
+const { DateTime } = require("luxon");
 const { get, all } = require("../db");
 const { layout, escapeHtml } = require("../ui/layout");
 
 const router = express.Router();
 
+const TZ = "Europe/Brussels";
+
+/**
+ * Format TIMESTAMPTZ (UTC in DB) naar Belgische tijd
+ */
+function formatBE(ts) {
+  if (!ts) return "—";
+  return DateTime.fromISO(String(ts), { zone: "utc" })
+    .setZone(TZ)
+    .toFormat("dd/LL/yyyy HH:mm");
+}
+
+/**
+ * Duur in minuten tussen 2 timestamps (UTC in DB)
+ * Negatieve waarden => 0 (zoals je eerder besliste)
+ */
 function minutesBetween(a, b) {
-  const ms = new Date(b) - new Date(a);
-  return ms > 0 ? Math.floor(ms / 60000) : 0;
+  if (!a || !b) return 0;
+
+  const start = DateTime.fromISO(String(a), { zone: "utc" });
+  const end = DateTime.fromISO(String(b), { zone: "utc" });
+
+  const diff = end.diff(start, "minutes").minutes;
+  return diff > 0 ? Math.floor(diff) : 0;
 }
 
 router.get("/admin", async (req, res) => {
-  const company = await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
+  const company = await get(
+    `SELECT id, name FROM companies ORDER BY id LIMIT 1`
+  );
+
   if (!company) {
     return res.send(
       layout(
@@ -25,7 +50,10 @@ router.get("/admin", async (req, res) => {
   }
 
   const employees = await all(
-    `SELECT id, display_name FROM employees WHERE company_id=$1 ORDER BY id`,
+    `SELECT id, display_name
+     FROM employees
+     WHERE company_id=$1
+     ORDER BY id`,
     [company.id]
   );
 
@@ -33,16 +61,20 @@ router.get("/admin", async (req, res) => {
 
   for (const e of employees) {
     const lastIn = await get(
-      `SELECT timestamp FROM scan_events
+      `SELECT timestamp
+       FROM scan_events
        WHERE employee_id=$1 AND direction='IN'
-       ORDER BY timestamp DESC LIMIT 1`,
+       ORDER BY timestamp DESC
+       LIMIT 1`,
       [e.id]
     );
 
     const lastOut = await get(
-      `SELECT timestamp FROM scan_events
+      `SELECT timestamp
+       FROM scan_events
        WHERE employee_id=$1 AND direction='OUT'
-       ORDER BY timestamp DESC LIMIT 1`,
+       ORDER BY timestamp DESC
+       LIMIT 1`,
       [e.id]
     );
 
@@ -61,8 +93,8 @@ router.get("/admin", async (req, res) => {
     rows.push(`
       <tr>
         <td>${escapeHtml(e.display_name)}</td>
-        <td>${lastIn ? escapeHtml(lastIn.timestamp) : "—"}</td>
-        <td>${lastOut ? escapeHtml(lastOut.timestamp) : "—"}</td>
+        <td>${formatBE(lastIn?.timestamp)}</td>
+        <td>${formatBE(lastOut?.timestamp)}</td>
         <td>${duration}</td>
         <td>${status}</td>
       </tr>
@@ -74,7 +106,9 @@ router.get("/admin", async (req, res) => {
       "Rapport",
       `<div class="card">
         <h1>Jouw rapport – ${escapeHtml(company.name)}</h1>
-        <p class="muted">Laatste IN/OUT per werknemer + duur (minuten).</p>
+        <p class="muted">
+          Laatste IN/OUT per werknemer – weergegeven in <b>Belgische tijd</b>.
+        </p>
 
         <table>
           <thead>

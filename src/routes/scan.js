@@ -1,5 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
+const { DateTime } = require("luxon");
 const { get, run } = require("../db");
 const { COOLDOWN_MINUTES, COOKIE_NAME, IS_PROD } = require("../config");
 const { layout, escapeHtml } = require("../ui/layout");
@@ -7,8 +8,19 @@ const { cardHeader } = require("../ui/components");
 
 const router = express.Router();
 
+const TZ = "Europe/Brussels";
+
 function makeToken() {
   return crypto.randomBytes(24).toString("hex");
+}
+
+function formatBelgianTime(ts) {
+  if (!ts) return "—";
+  // ts is TIMESTAMPTZ from Postgres; pg returns it as ISO-ish string
+  // We parse it and force display in Europe/Brussels (handles DST).
+  return DateTime.fromISO(String(ts), { zone: "utc" })
+    .setZone(TZ)
+    .toFormat("dd/LL/yyyy HH:mm:ss");
 }
 
 async function resolveTag(tagId) {
@@ -80,7 +92,9 @@ async function logScanEvent({ companyId, employeeId, tagId, direction }) {
 router.get("/t/:tagId/in", async (req, res) => {
   const tag = await resolveTag(Number(req.params.tagId));
   if (!tag) {
-    return res.status(404).send(layout("Onbekend", `<div class="card"><h1>Onbekende ScanTag</h1></div>`));
+    return res
+      .status(404)
+      .send(layout("Onbekend", `<div class="card"><h1>Onbekende ScanTag</h1></div>`));
   }
 
   const binding = await resolveBinding(req.cookies[COOKIE_NAME]);
@@ -152,7 +166,7 @@ router.get("/t/:tagId/in", async (req, res) => {
         <div class="big">✅ IN</div>
         <p style="margin:0; font-size:18px;">Werknemer: <b>${escapeHtml(ev.display_name)}</b></p>
         <p class="muted" style="margin-top:8px;">
-          Tijd: <b>${escapeHtml(ev.timestamp)}</b><br/>
+          Tijd: <b>${escapeHtml(formatBelgianTime(ev.timestamp))}</b><br/>
           Tag: ${escapeHtml(ev.tag_name)}
         </p>
         <div class="row" style="margin-top:14px;">
@@ -168,7 +182,9 @@ router.get("/t/:tagId/in", async (req, res) => {
 router.get("/t/:tagId/out", async (req, res) => {
   const tag = await resolveTag(Number(req.params.tagId));
   if (!tag) {
-    return res.status(404).send(layout("Onbekend", `<div class="card"><h1>Onbekende ScanTag</h1></div>`));
+    return res
+      .status(404)
+      .send(layout("Onbekend", `<div class="card"><h1>Onbekende ScanTag</h1></div>`));
   }
 
   const binding = await resolveBinding(req.cookies[COOKIE_NAME]);
@@ -227,7 +243,7 @@ router.get("/t/:tagId/out", async (req, res) => {
         <div class="big">✅ OUT</div>
         <p style="margin:0; font-size:18px;">Werknemer: <b>${escapeHtml(ev.display_name)}</b></p>
         <p class="muted" style="margin-top:8px;">
-          Tijd: <b>${escapeHtml(ev.timestamp)}</b><br/>
+          Tijd: <b>${escapeHtml(formatBelgianTime(ev.timestamp))}</b><br/>
           Tag: ${escapeHtml(ev.tag_name)}
         </p>
         <div class="row" style="margin-top:14px;">
@@ -245,7 +261,9 @@ router.post("/activate", async (req, res) => {
 
   const tag = await resolveTag(tagId);
   if (!tag) {
-    return res.status(404).send(layout("Onbekend", `<div class="card"><h1>Onbekende ScanTag</h1></div>`));
+    return res
+      .status(404)
+      .send(layout("Onbekend", `<div class="card"><h1>Onbekende ScanTag</h1></div>`));
   }
 
   if (!scanCode) {
@@ -301,8 +319,7 @@ router.post("/activate", async (req, res) => {
     maxAge: 1000 * 60 * 60 * 24 * 365,
   });
 
-  // Na activatie: registreer meteen IN
-  // We redirecten naar IN endpoint zodat dezelfde flow/HTML gebruikt wordt.
+  // Na activatie: registreer meteen IN via redirect (zelfde flow/HTML)
   return res.redirect(`/t/${tagId}/in`);
 });
 

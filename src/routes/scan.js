@@ -16,12 +16,13 @@ function makeToken() {
 
 function formatBelgianTime(ts) {
   if (!ts) return "—";
-  // ts is TIMESTAMPTZ from Postgres; pg returns it as ISO-ish string
-  // We parse it and force display in Europe/Brussels (handles DST).
-  return DateTime.fromISO(String(ts), { zone: "utc" })
-    .setZone(TZ)
+
+  return DateTime
+    .fromJSDate(new Date(ts), { zone: "utc" })
+    .setZone("Europe/Brussels")
     .toFormat("dd/LL/yyyy HH:mm:ss");
 }
+
 
 async function resolveTag(tagId) {
   return await get(

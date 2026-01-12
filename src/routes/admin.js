@@ -12,10 +12,13 @@ const TZ = "Europe/Brussels";
  */
 function formatBE(ts) {
   if (!ts) return "—";
-  return DateTime.fromISO(String(ts), { zone: "utc" })
-    .setZone(TZ)
+
+  return DateTime
+    .fromJSDate(new Date(ts), { zone: "utc" })
+    .setZone("Europe/Brussels")
     .toFormat("dd/LL/yyyy HH:mm");
 }
+
 
 /**
  * Duur in minuten tussen 2 timestamps (UTC in DB)

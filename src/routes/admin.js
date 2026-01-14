@@ -264,7 +264,7 @@ router.get("/admin", async (req, res) => {
       outCount,
     });
 
-    // Pattern stats (laatste N dagen)
+    // Pattern stats stats (laatste N dagen)
     const { reviewRecommended, problemDays, multipleScanDays } =
       await computeReviewStats(e.id);
 

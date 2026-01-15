@@ -7,6 +7,9 @@ const router = express.Router();
 
 const TZ = "Europe/Brussels";
 
+// Hoeveel dagen toon je in het rapport
+const REPORT_DAYS = 30;
+
 // Pattern instellingen
 const REVIEW_WINDOW_DAYS = 14;
 const REVIEW_THRESHOLD_PROBLEM_DAYS = 3; // >= 3 probleemdagen in 14 dagen => review
@@ -33,6 +36,11 @@ function toUtcDateTime(ts) {
   return null;
 }
 
+function beDateKey(dtUtc) {
+  if (!dtUtc) return null;
+  return dtUtc.setZone(TZ).toFormat("yyyy-LL-dd"); // day key
+}
+
 function formatBE(ts) {
   const dt = toUtcDateTime(ts);
   if (!dt) return "—";
@@ -43,24 +51,33 @@ function minutesBetween(a, b) {
   const start = toUtcDateTime(a);
   const end = toUtcDateTime(b);
   if (!start || !end) return 0;
-
-  const diff = end.diff(start, "minutes").minutes;
-  return diff > 0 ? Math.floor(diff) : 0; // negatieve => 0
+  const mins = Math.floor(end.diff(start, "minutes").minutes);
+  return Number.isFinite(mins) ? mins : 0;
 }
 
-function beDateKey(dtUtc) {
-  if (!dtUtc) return null;
-  return dtUtc.setZone(TZ).toFormat("yyyy-LL-dd"); // workday key
+function renderStatusBadge(status) {
+  if (!status || status === "—") return "—";
+  if (status === "AFGEROND") return `<code>${escapeHtml(status)}</code>`;
+  if (status === "OPEN") return `<span class="badge warn">open</span>`;
+  if (status === "ONVOLLEDIG") return `<span class="badge warn">onvolledig</span>`;
+  return `<code>${escapeHtml(status)}</code>`;
+}
+
+function renderFlags(flags) {
+  if (!flags || flags.length === 0) return "—";
+  return flags.map((f) => `<code>${escapeHtml(f)}</code>`).join(" ");
 }
 
 // --------------------
-// Fallback engine: status + flags
+// Fallback rules (status + flags + duration)
 // --------------------
 function computeStatusAndFlags({ firstIn, lastOut, inCount, outCount }) {
   const flags = [];
 
-  if ((inCount || 0) > 1 || (outCount || 0) > 1) {
-    flags.push("MULTIPLE_SCANS");
+  if ((inCount || 0) + (outCount || 0) > 2) flags.push("MULTIPLE_SCANS");
+
+  if (!firstIn && !lastOut) {
+    return { status: "—", flags: [], duration: 0 };
   }
 
   if (!firstIn && lastOut) {
@@ -74,48 +91,31 @@ function computeStatusAndFlags({ firstIn, lastOut, inCount, outCount }) {
   }
 
   if (firstIn && lastOut) {
-    // expliciet negatieve duur check
     const dtIn = toUtcDateTime(firstIn);
     const dtOut = toUtcDateTime(lastOut);
+
     if (dtIn && dtOut && dtOut < dtIn) {
       flags.push("NEGATIVE_DURATION");
       return { status: "ONVOLLEDIG", flags, duration: 0 };
     }
 
-    const duration = minutesBetween(firstIn, lastOut);
+    const duration = Math.max(0, minutesBetween(firstIn, lastOut));
     return { status: "AFGEROND", flags, duration };
   }
 
-  return { status: "—", flags, duration: 0 };
-}
-
-function humanStatus(status) {
-  switch (status) {
-    case "AFGEROND":
-      return "✅ afgerond";
-    case "OPEN":
-      return "⏳ open";
-    case "ONVOLLEDIG":
-      return "⚠️ onvolledig";
-    default:
-      return "—";
-  }
-}
-
-function renderFlags(flags) {
-  if (!flags || flags.length === 0) return "—";
-  return flags.map((f) => `<code>${escapeHtml(f)}</code>`).join(" ");
+  return { status: "—", flags: [], duration: 0 };
 }
 
 // --------------------
-// Pattern detection (fraude-benadering = herhaling -> review)
+// Pattern detection (herhaling -> review, geen fraudeclaim)
 // --------------------
 function isProblemDay(flags) {
   const set = new Set(flags || []);
   return (
     set.has("IN_WITHOUT_OUT") ||
     set.has("OUT_WITHOUT_IN") ||
-    set.has("NEGATIVE_DURATION")
+    set.has("NEGATIVE_DURATION") ||
+    set.has("MISSING_OUT") // regel 4 (over dagen heen)
   );
 }
 
@@ -127,51 +127,102 @@ function renderReviewBadge(isReview) {
   return isReview ? `<code>REVIEW_RECOMMENDED</code>` : "—";
 }
 
-async function computeReviewStats(employeeId) {
-  // Haal alle events van de laatste N dagen
-  const events = await all(
-    `SELECT direction, timestamp
-     FROM scan_events
-     WHERE employee_id = $1
-       AND timestamp >= NOW() - ($2 || ' days')::interval
-     ORDER BY timestamp ASC`,
-    [employeeId, REVIEW_WINDOW_DAYS]
-  );
+// --------------------
+// Build day buckets per employee
+// + apply rule 4 over days: open IN gevolgd door nieuwe IN => vorige dag ONVOLLEDIG + MISSING_OUT
+// --------------------
+function buildDailySummaries({ eventsByEmployee, employees }) {
+  // employeeId -> array of day summaries (sorted by day asc)
+  const summariesByEmployee = new Map();
 
-  // Groepeer per Belgische datum
-  const byDay = new Map(); // dayKey -> { ins: [], outs: [] }
-  for (const ev of events) {
-    const dtUtc = toUtcDateTime(ev.timestamp);
-    if (!dtUtc) continue;
-    const dayKey = beDateKey(dtUtc);
-    if (!dayKey) continue;
+  for (const emp of employees) {
+    const evs = eventsByEmployee.get(emp.id) || [];
 
-    if (!byDay.has(dayKey)) byDay.set(dayKey, { ins: [], outs: [] });
-    const bucket = byDay.get(dayKey);
+    // Group by Belgian calendar day of the event timestamp
+    const byDay = new Map(); // dayKey -> { ins:[], outs:[], all:[] }
+    for (const ev of evs) {
+      const dtUtc = toUtcDateTime(ev.timestamp);
+      if (!dtUtc) continue;
+      const dayKey = beDateKey(dtUtc);
+      if (!dayKey) continue;
 
-    if (ev.direction === "IN") bucket.ins.push(ev.timestamp);
-    if (ev.direction === "OUT") bucket.outs.push(ev.timestamp);
+      if (!byDay.has(dayKey)) byDay.set(dayKey, { ins: [], outs: [], all: [] });
+      const bucket = byDay.get(dayKey);
+
+      bucket.all.push(ev);
+      if (ev.direction === "IN") bucket.ins.push(ev.timestamp);
+      if (ev.direction === "OUT") bucket.outs.push(ev.timestamp);
+    }
+
+    // Create summaries
+    const dayKeys = Array.from(byDay.keys()).sort(); // asc
+    const daySummaries = dayKeys.map((dayKey) => {
+      const bucket = byDay.get(dayKey);
+
+      const ins = bucket.ins;
+      const outs = bucket.outs;
+
+      const firstIn = ins.length ? ins[0] : null;
+      const lastOut = outs.length ? outs[outs.length - 1] : null;
+
+      const inCount = ins.length;
+      const outCount = outs.length;
+
+      const computed = computeStatusAndFlags({ firstIn, lastOut, inCount, outCount });
+
+      return {
+        dayKey,
+        firstIn,
+        lastOut,
+        inCount,
+        outCount,
+        status: computed.status,
+        flags: computed.flags,
+        duration: computed.duration,
+      };
+    });
+
+    // Apply rule 4 (over days):
+    // If day A has IN without OUT (OPEN / IN_WITHOUT_OUT),
+    // and next day B has an IN, then day A becomes ONVOLLEDIG + MISSING_OUT (duration stays 0).
+    for (let i = 0; i < daySummaries.length - 1; i++) {
+      const a = daySummaries[i];
+      const b = daySummaries[i + 1];
+
+      const aHasOpenIn = !!a.firstIn && !a.lastOut; // IN without OUT
+      const bHasIn = !!b.firstIn;
+
+      if (aHasOpenIn && bHasIn) {
+        // Replace the "OPEN/IN_WITHOUT_OUT" semantics with "ONVOLLEDIG/MISSING_OUT"
+        const newFlags = (a.flags || []).filter((f) => f !== "IN_WITHOUT_OUT");
+        if (!newFlags.includes("MISSING_OUT")) newFlags.push("MISSING_OUT");
+
+        a.status = "ONVOLLEDIG";
+        a.flags = newFlags;
+        a.duration = 0;
+      }
+    }
+
+    summariesByEmployee.set(emp.id, daySummaries);
   }
+
+  return summariesByEmployee;
+}
+
+function computeReviewFromSummaries(daySummaries) {
+  // Only consider the last REVIEW_WINDOW_DAYS from today (Belgian date)
+  const todayBE = DateTime.now().setZone(TZ).startOf("day");
+  const minDay = todayBE.minus({ days: REVIEW_WINDOW_DAYS - 1 }); // inclusive
 
   let problemDays = 0;
   let multipleScanDays = 0;
 
-  for (const [, bucket] of byDay.entries()) {
-    const ins = bucket.ins;
-    const outs = bucket.outs;
+  for (const s of daySummaries) {
+    const day = DateTime.fromISO(s.dayKey, { zone: TZ }).startOf("day");
+    if (day < minDay || day > todayBE) continue;
 
-    const firstIn = ins.length ? ins[0] : null;
-    const lastOut = outs.length ? outs[outs.length - 1] : null;
-
-    const { flags } = computeStatusAndFlags({
-      firstIn,
-      lastOut,
-      inCount: ins.length,
-      outCount: outs.length,
-    });
-
-    if (isProblemDay(flags)) problemDays += 1;
-    if (isMultipleScanDay(flags)) multipleScanDays += 1;
+    if (isProblemDay(s.flags)) problemDays += 1;
+    if (isMultipleScanDay(s.flags)) multipleScanDays += 1;
   }
 
   const reviewRecommended =
@@ -182,18 +233,20 @@ async function computeReviewStats(employeeId) {
 }
 
 // --------------------
-// Route
+// Routes
 // --------------------
+
+// 1) Admin overview: multiple lines (multiple days)
 router.get("/admin", async (req, res) => {
   const company = await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
   if (!company) {
     return res.send(
       layout(
-        "Rapport",
+        "Admin",
         `<div class="card">
-          <h1>Rapport</h1>
-          <p class="muted">Nog geen onderneming.</p>
-          <a class="btn" href="/wizard/company">Start wizard</a>
+          <h1>Admin</h1>
+          <p>Geen company gevonden. Start via de wizard.</p>
+          <a class="btn" href="/wizard/company">Wizard</a>
         </div>`
       )
     );
@@ -207,98 +260,74 @@ router.get("/admin", async (req, res) => {
     [company.id]
   );
 
+  // Fetch all scan events for last REPORT_DAYS for this company
+  const events = await all(
+    `SELECT employee_id, direction, timestamp
+     FROM scan_events
+     WHERE company_id = $1
+       AND timestamp >= NOW() - ($2 || ' days')::interval
+     ORDER BY employee_id ASC, timestamp ASC`,
+    [company.id, REPORT_DAYS]
+  );
+
+  // Build employeeId -> events[]
+  const eventsByEmployee = new Map();
+  for (const ev of events) {
+    if (!eventsByEmployee.has(ev.employee_id)) eventsByEmployee.set(ev.employee_id, []);
+    eventsByEmployee.get(ev.employee_id).push(ev);
+  }
+
+  const summariesByEmployee = buildDailySummaries({ eventsByEmployee, employees });
+
+  // Build rows for table (show newest day first per employee)
   const rows = [];
 
   for (const e of employees) {
-    // "Huidige werkdag": datum van laatste IN (BE) of laatste OUT als er geen IN is
-    const lastInRow = await get(
-      `SELECT timestamp
-       FROM scan_events
-       WHERE employee_id = $1 AND direction='IN'
-       ORDER BY timestamp DESC LIMIT 1`,
-      [e.id]
-    );
+    const daySummariesAsc = summariesByEmployee.get(e.id) || [];
+    const daySummaries = [...daySummariesAsc].sort((a, b) => (a.dayKey < b.dayKey ? 1 : -1)); // desc
 
-    const lastOutRow = await get(
-      `SELECT timestamp
-       FROM scan_events
-       WHERE employee_id = $1 AND direction='OUT'
-       ORDER BY timestamp DESC LIMIT 1`,
-      [e.id]
-    );
+    const reviewStats = computeReviewFromSummaries(daySummariesAsc);
 
-    const lastInUtc = toUtcDateTime(lastInRow?.timestamp);
-    const lastOutUtc = toUtcDateTime(lastOutRow?.timestamp);
-
-    const workdayKey = beDateKey(lastInUtc || lastOutUtc); // yyyy-MM-dd in BE
-
-    let firstIn = null;
-    let lastOut = null;
-    let inCount = 0;
-    let outCount = 0;
-
-    if (workdayKey) {
-      const dayEvents = await all(
-        `SELECT direction, timestamp
-         FROM scan_events
-         WHERE employee_id = $1
-           AND (timestamp AT TIME ZONE 'Europe/Brussels')::date = $2::date
-         ORDER BY timestamp ASC`,
-        [e.id, workdayKey]
-      );
-
-      const ins = dayEvents.filter((ev) => ev.direction === "IN");
-      const outs = dayEvents.filter((ev) => ev.direction === "OUT");
-
-      inCount = ins.length;
-      outCount = outs.length;
-
-      firstIn = ins.length ? ins[0].timestamp : null;
-      lastOut = outs.length ? outs[outs.length - 1].timestamp : null;
+    if (daySummaries.length === 0) {
+      rows.push(`<tr>
+        <td>${escapeHtml(e.display_name || "—")}</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>0</td>
+        <td>—</td>
+        <td>—</td>
+        <td>${renderReviewBadge(reviewStats.reviewRecommended)}</td>
+      </tr>`);
+      continue;
     }
 
-    const { status, flags, duration } = computeStatusAndFlags({
-      firstIn,
-      lastOut,
-      inCount,
-      outCount,
-    });
+    for (const s of daySummaries) {
+      // Detail link
+      const detailHref = `/admin/day?employeeId=${encodeURIComponent(e.id)}&day=${encodeURIComponent(
+        s.dayKey
+      )}`;
 
-    // Pattern stats stats (laatste N dagen)
-    const { reviewRecommended, problemDays, multipleScanDays } =
-      await computeReviewStats(e.id);
-
-    rows.push(`
-      <tr>
-        <td>${escapeHtml(e.display_name)}</td>
-        <td>${workdayKey ? escapeHtml(workdayKey) : "—"}</td>
-        <td>${formatBE(firstIn)}</td>
-        <td>${formatBE(lastOut)}</td>
-        <td>${duration}</td>
-        <td>${humanStatus(status)}</td>
-        <td>${renderFlags(flags)}</td>
-        <td>
-          ${renderReviewBadge(reviewRecommended)}
-          ${
-            reviewRecommended
-              ? `<div class="muted" style="margin-top:4px;">
-                   ${problemDays} probleemdagen / ${REVIEW_WINDOW_DAYS}d
-                   ${multipleScanDays ? `• ${multipleScanDays} multi-scan dagen` : ""}
-                 </div>`
-              : ""
-          }
-        </td>
-      </tr>
-    `);
+      rows.push(`<tr>
+        <td>${escapeHtml(e.display_name || "—")}</td>
+        <td><a href="${detailHref}">${escapeHtml(s.dayKey)}</a></td>
+        <td>${formatBE(s.firstIn)}</td>
+        <td>${formatBE(s.lastOut)}</td>
+        <td>${Number(s.duration || 0)}</td>
+        <td>${renderStatusBadge(s.status)}</td>
+        <td>${renderFlags(s.flags)}</td>
+        <td>${renderReviewBadge(reviewStats.reviewRecommended)}</td>
+      </tr>`);
+    }
   }
 
-  res.send(
+  return res.send(
     layout(
-      "Rapport",
+      `Jouw rapport – ${company.name}`,
       `<div class="card">
         <h1>Jouw rapport – ${escapeHtml(company.name)}</h1>
         <p class="muted">
-          Automatische fall-backs (geen fictieve scans). Belgische tijd. 
+          Automatische fall-backs (geen fictieve scans). Belgische tijd.
           <code>REVIEW_RECOMMENDED</code> = herhaald patroon, geen automatische fraudeclaim.
         </p>
 
@@ -321,6 +350,116 @@ router.get("/admin", async (req, res) => {
         <div class="row" style="margin-top:14px;">
           <a class="btn secondary" href="/tags">QR’s</a>
           <a class="btn secondary" href="/wizard/company">Wizard</a>
+        </div>
+      </div>`
+    )
+  );
+});
+
+// 2) Detail view per werkdag: toon alle scan events van die dag (BE)
+router.get("/admin/day", async (req, res) => {
+  const employeeId = Number(req.query.employeeId || 0);
+  const dayKey = String(req.query.day || "");
+
+  if (!employeeId || !dayKey) {
+    return res.send(
+      layout(
+        "Details",
+        `<div class="card">
+          <h1>Details</h1>
+          <p>Ongeldige parameters.</p>
+          <a class="btn secondary" href="/admin">Terug</a>
+        </div>`
+      )
+    );
+  }
+
+  const employee = await get(
+    `SELECT id, display_name, company_id
+     FROM employees
+     WHERE id=$1`,
+    [employeeId]
+  );
+
+  if (!employee) {
+    return res.send(
+      layout(
+        "Details",
+        `<div class="card">
+          <h1>Details</h1>
+          <p>Werknemer niet gevonden.</p>
+          <a class="btn secondary" href="/admin">Terug</a>
+        </div>`
+      )
+    );
+  }
+
+  // Haal alle events events van die Belgische kalenderdag
+  const events = await all(
+    `SELECT direction, timestamp
+     FROM scan_events
+     WHERE employee_id = $1
+       AND (timestamp AT TIME ZONE 'Europe/Brussels')::date = $2::date
+     ORDER BY timestamp ASC`,
+    [employeeId, dayKey]
+  );
+
+  // Compute summary for this day (as in overview)
+  const ins = events.filter((e) => e.direction === "IN").map((e) => e.timestamp);
+  const outs = events.filter((e) => e.direction === "OUT").map((e) => e.timestamp);
+
+  const firstIn = ins.length ? ins[0] : null;
+  const lastOut = outs.length ? outs[outs.length - 1] : null;
+
+  const { status, flags, duration } = computeStatusAndFlags({
+    firstIn,
+    lastOut,
+    inCount: ins.length,
+    outCount: outs.length,
+  });
+
+  const eventRows =
+    events.length === 0
+      ? `<tr><td colspan="2">Geen scans op deze dag.</td></tr>`
+      : events
+          .map(
+            (ev) => `<tr>
+              <td><code>${escapeHtml(ev.direction)}</code></td>
+              <td>${formatBE(ev.timestamp)}</td>
+            </tr>`
+          )
+          .join("");
+
+  return res.send(
+    layout(
+      `Details – ${employee.display_name || "Werknemer"}`,
+      `<div class="card">
+        <h1>Details – ${escapeHtml(employee.display_name || "—")}</h1>
+        <p class="muted">
+          Werkdag: <code>${escapeHtml(dayKey)}</code> (Belgische tijd)
+        </p>
+
+        <div style="margin: 10px 0 14px;">
+          <strong>Samenvatting</strong><br/>
+          Status: ${renderStatusBadge(status)}<br/>
+          Duur: <code>${Number(duration || 0)} min</code><br/>
+          Flags: ${renderFlags(flags)}
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Richting</th>
+              <th>Tijdstip</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${eventRows}
+          </tbody>
+        </table>
+
+        <div class="row" style="margin-top:14px;">
+          <a class="btn secondary" href="/admin">Terug</a>
         </div>
       </div>`
     )

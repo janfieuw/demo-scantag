@@ -2,7 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const { DateTime } = require("luxon");
 const { get, all, run } = require("../db");
-const { layout, escapeHtml } = require("../ui/layout");
+const { layoutDemo, escapeHtml } = require("../ui/layout");
 
 const router = express.Router();
 
@@ -71,6 +71,19 @@ async function generateUniqueScanCode(companyId) {
   throw new Error("Failed to generate unique scan code");
 }
 
+function demoPage(title, kicker, heading, sub, innerHtml) {
+  const left = `
+    <div class="demo-kicker">${escapeHtml(kicker)}</div>
+    <h1 class="demo-title">${escapeHtml(heading)}</h1>
+    ${sub ? `<p class="demo-sub">${sub}</p>` : ""}
+    ${innerHtml}
+  `;
+  return layoutDemo(title, left, {
+    rightTitle: "PUNCTOO Demo",
+    rightSubtitle: "ScanTag + referentietijd (rooster/kalender)",
+  });
+}
+
 // Reset: alles leeg
 router.post("/wizard/reset", async (req, res) => {
   await run(`DELETE FROM scan_events`);
@@ -110,45 +123,54 @@ router.get("/wizard/company", async (req, res) => {
 
   if (company) {
     return res.send(
-      layout(
-        "Wizard - Onderneming",
-        `<div class="card">
-          <h1>1) Voeg jouw onderneming toe</h1>
-          <p class="muted">Pilot: 1 onderneming, 2 werknemers.</p>
+      demoPage(
+        "DEMO – Stap 1",
+        "DEMO UITTESTEN – IN 3 STAPPEN",
+        "STAP 1.",
+        `Vul de naam van jouw onderneming in.`,
+        `
+        <div class="demo-panel">
+          <p class="demo-sub" style="margin:0;">
+            Onderneming: <b>${escapeHtml(company.name)}</b>
+          </p>
+        </div>
 
-          <p>Huidige onderneming: <b>${escapeHtml(company.name)}</b></p>
+        <div class="demo-actions">
+          <a class="btn secondary" href="/wizard/reset" onclick="return false;">Opnieuw beginnen</a>
+          <a class="btn primary" href="/wizard/employees">VOLGENDE</a>
+        </div>
 
-          <div class="row" style="margin-top:14px;">
-            <a class="btn" href="/wizard/employees">Volgende</a>
-            <form method="POST" action="/wizard/reset">
-              <button class="btn secondary" type="submit">Opnieuw beginnen</button>
-            </form>
-          </div>
-        </div>`
+        <form method="POST" action="/wizard/reset" style="margin-top:10px;">
+          <button class="btn secondary" type="submit">Opnieuw beginnen</button>
+        </form>
+        `
       )
     );
   }
 
   return res.send(
-    layout(
-      "Wizard - Onderneming",
-      `<div class="card">
-        <h1>1) Voeg onderneming toe</h1>
-        <p class="muted">Pilot: 1 onderneming, 2 werknemers.</p>
-
+    demoPage(
+      "DEMO – Stap 1",
+      "DEMO UITTESTEN – IN 3 STAPPEN",
+      "STAP 1.",
+      `Vul de naam van jouw onderneming in.`,
+      `
+      <div class="demo-panel">
         <form method="POST" action="/wizard/company">
-          <label class="muted" for="name">Ondernemingsnaam</label><br/>
-          <input id="name" name="name" placeholder="bv. BEDRIJF VANDENAVENNE" required />
-          <div style="height:12px"></div>
-          <button class="btn" type="submit">Volgende</button>
+          <div class="demo-field">
+            <label for="name">NAAM ONDERNEMING</label>
+            <input id="name" name="name" placeholder="BV. RE:SOURCE" required />
+          </div>
+          <div class="demo-actions">
+            <button class="btn primary" type="submit">VOLGENDE</button>
+          </div>
         </form>
+      </div>
 
-        <div class="row" style="margin-top:14px;">
-          <form method="POST" action="/wizard/reset">
-            <button class="btn secondary" type="submit">Opnieuw beginnen</button>
-          </form>
-        </div>
-      </div>`
+      <form method="POST" action="/wizard/reset" style="margin-top:10px;">
+        <button class="btn secondary" type="submit">Opnieuw beginnen</button>
+      </form>
+      `
     )
   );
 });
@@ -170,7 +192,7 @@ router.post("/wizard/company", async (req, res) => {
     [inserted.id, "ScanTag"]
   );
 
-  return res.redirect("/wizard/company");
+  return res.redirect("/wizard/employees");
 });
 
 // STEP 2
@@ -183,10 +205,11 @@ router.get("/wizard/employees", async (req, res) => {
 
   const list = employees
     .map(
-      (e, i) => `<tr>
+      (e, i) => `
+      <tr>
         <td>${i + 1}</td>
         <td>${escapeHtml(e.display_name)}</td>
-        <td><code>${escapeHtml(e.scan_code)}</code></td>
+        <td><b>${escapeHtml(e.scan_code)}</b></td>
         <td>
           <form method="POST" action="/wizard/employees/unbind" style="margin:0;">
             <input type="hidden" name="employee_id" value="${e.id}" />
@@ -197,46 +220,54 @@ router.get("/wizard/employees", async (req, res) => {
     )
     .join("");
 
+  const addForm = canAdd
+    ? `
+      <div class="demo-panel">
+        <form method="POST" action="/wizard/employees/add">
+          <div class="demo-field">
+            <label for="display_name">WERKNEMER ${employees.length + 1} (VAN 2)</label>
+            <input id="display_name" name="display_name" placeholder="BV. JAN" required />
+          </div>
+          <div class="demo-actions">
+            <button class="btn primary" type="submit">TOEVOEGEN</button>
+          </div>
+        </form>
+      </div>
+    `
+    : `<p class="demo-sub">✅ 2 werknemers toegevoegd.</p>`;
+
+  const nextButton = employees.length === 2
+    ? `<a class="btn primary" href="/wizard/reference">VOLGENDE</a>`
+    : `<button class="btn primary" type="button" disabled style="opacity:.5; cursor:not-allowed;">VOLGENDE</button>`;
+
   return res.send(
-    layout(
-      "Wizard - Werknemers",
-      `<div class="card">
-        <h1>2) Voeg twee werknemers toe</h1>
-        <p class="muted">
-          Vul de naam in van de werknemer. Na toevoegen wordt automatisch een <b>activatiecode</b> gegenereerd.
-          Deze code gebruik je straks om de smartphone te <b>activeren</b>.
-        </p>
-        <p class="muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
-
-        <table>
-          <thead><tr><th>#</th><th>Naam</th><th>Activatiecode</th><th>Actie</th></tr></thead>
-          <tbody>${list}</tbody>
+    demoPage(
+      "DEMO – Stap 2",
+      "DEMO UITTESTEN – IN 3 STAPPEN",
+      "STAP 2.",
+      `Voeg 2 werknemers toe. PUNCTOO maakt automatisch een <b>activatiecode</b> aan per werknemer.`,
+      `
+      <div class="demo-panel">
+        <p class="demo-sub" style="margin-top:0;">Onderneming: <b>${escapeHtml(company.name)}</b></p>
+        <table class="demo-table">
+          <thead>
+            <tr><th>#</th><th>Werknemer</th><th>Activatiecode</th><th>Actie</th></tr>
+          </thead>
+          <tbody>${list || `<tr><td colspan="4">Nog geen werknemers.</td></tr>`}</tbody>
         </table>
+      </div>
 
-        ${
-          canAdd
-            ? `<hr />
-               <form method="POST" action="/wizard/employees/add">
-                 <label class="muted" for="display_name">Naam werknemer (${employees.length + 1}/2)</label><br/>
-                 <input id="display_name" name="display_name" placeholder="bv. JAN" required />
-                 <div style="height:12px"></div>
-                 <button class="btn" type="submit">Voeg toe</button>
-               </form>`
-            : `<p class="muted" style="margin-top:14px;">✅ 2 werknemers toegevoegd.</p>`
-        }
+      ${addForm}
 
-        <div class="row" style="margin-top:14px;">
-          <a class="btn secondary" href="/wizard/company">Terug</a>
-          ${
-            employees.length === 2
-              ? `<a class="btn" href="/wizard/reference">Volgende</a>`
-              : ""
-          }
-          <form method="POST" action="/wizard/reset">
-            <button class="btn secondary" type="submit">Opnieuw beginnen</button>
-          </form>
-        </div>
-      </div>`
+      <div class="demo-actions">
+        <a class="btn secondary" href="/wizard/company">TERUG</a>
+        ${nextButton}
+      </div>
+
+      <form method="POST" action="/wizard/reset" style="margin-top:10px;">
+        <button class="btn secondary" type="submit">Opnieuw beginnen</button>
+      </form>
+      `
     )
   );
 });
@@ -301,9 +332,10 @@ router.get("/wizard/reference", async (req, res) => {
     .map((e, idx) => {
       const mode = e.reference_mode || "";
       const isOk = okMap.get(e.id) === true;
-      return `<tr>
+      return `
+      <tr>
         <td>${idx + 1}</td>
-        <td>${escapeHtml(e.display_name || "—")}</td>
+        <td><b>${escapeHtml(e.display_name || "—")}</b></td>
         <td>
           <form method="POST" action="/wizard/reference/open" style="margin:0; display:flex; gap:10px; align-items:center;">
             <input type="hidden" name="employee_id" value="${e.id}" />
@@ -312,42 +344,42 @@ router.get("/wizard/reference", async (req, res) => {
               <option value="ROOSTER" ${mode === "ROOSTER" ? "selected" : ""}>Rooster</option>
               <option value="KALENDER" ${mode === "KALENDER" ? "selected" : ""}>Kalender</option>
             </select>
-            <button class="btn" type="submit">Vul aan</button>
+            <button class="btn primary" type="submit">VUL AAN</button>
           </form>
         </td>
-        <td>${isOk ? "<span class=\"badge ok\">OK</span>" : "<span class=\"badge warn\">Niet ingevuld</span>"}</td>
+        <td>${isOk ? '<span class="demo-badge ok">OK</span>' : '<span class="demo-badge warn">Niet ingevuld</span>'}</td>
       </tr>`;
     })
     .join("");
 
-  return res.send(
-    layout(
-      "Wizard - Referentietijd",
-      `<div class="card">
-        <h1>3) Stel referentietijd in</h1>
-        <p class="muted">
-          Kies per werknemer <b>Rooster</b> of <b>Kalender</b> en klik daarna op <b>Vul aan</b>.
-          Je komt na opslaan terug naar deze stap.
-        </p>
-        <p class="muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
+  const nextButton = allOk
+    ? `<a class="btn primary" href="/wizard/done">VOLGENDE</a>`
+    : `<button class="btn primary" type="button" disabled style="opacity:.5; cursor:not-allowed;">VOLGENDE</button>`;
 
-        <table>
+  return res.send(
+    demoPage(
+      "DEMO – Stap 3",
+      "DEMO UITTESTEN – IN 3 STAPPEN",
+      "STAP 3.",
+      `Stel de referentietijd in per werknemer. Kies <b>Rooster</b> of <b>Kalender</b> en klik op <b>Vul aan</b>.`,
+      `
+      <div class="demo-panel">
+        <p class="demo-sub" style="margin-top:0;">Onderneming: <b>${escapeHtml(company.name)}</b></p>
+        <table class="demo-table">
           <thead><tr><th>#</th><th>Werknemer</th><th>Instelling</th><th>Status</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
+      </div>
 
-        <div class="row" style="margin-top:14px;">
-          <a class="btn secondary" href="/wizard/employees">Terug</a>
-          ${
-            allOk
-              ? `<a class="btn" href="/wizard/qrs">Volgende</a>`
-              : `<button class="btn" type="button" disabled style="opacity:.5; cursor:not-allowed;">Volgende</button>`
-          }
-          <form method="POST" action="/wizard/reset">
-            <button class="btn secondary" type="submit">Opnieuw beginnen</button>
-          </form>
-        </div>
-      </div>`
+      <div class="demo-actions">
+        <a class="btn secondary" href="/wizard/employees">TERUG</a>
+        ${nextButton}
+      </div>
+
+      <form method="POST" action="/wizard/reset" style="margin-top:10px;">
+        <button class="btn secondary" type="submit">Opnieuw beginnen</button>
+      </form>
+      `
     )
   );
 });
@@ -395,34 +427,36 @@ router.get("/wizard/reference/rooster", async (req, res) => {
   const rows = [1, 2, 3, 4, 5, 6, 7]
     .map((dow) => {
       const val = map.get(dow) ?? "";
-      return `<tr>
-        <td><b>${weekdayLabel(dow)}</b></td>
-        <td><input type="number" min="0" name="m_${dow}" placeholder="min" value="${escapeHtml(val)}" /></td>
-      </tr>`;
+      return `
+        <tr>
+          <td><b>${weekdayLabel(dow)}</b></td>
+          <td><input type="number" min="0" name="m_${dow}" placeholder="min" value="${escapeHtml(val)}" /></td>
+        </tr>`;
     })
     .join("");
 
   return res.send(
-    layout(
+    demoPage(
       "Rooster invullen",
-      `<div class="card">
-        <h1>Rooster invullen</h1>
-        <p class="muted">Werknemer: <b>${escapeHtml(emp.display_name || "—")}</b></p>
-        <p class="muted">Vul de referentietijd in (in minuten) per weekdag. Leeg of 0 = geen referentietijd op die dag.</p>
-
+      "REFERENTIETIJD",
+      "PATROON",
+      `Werknemer: <b>${escapeHtml(emp.display_name || "—")}</b><br/>Vul de referentietijd in (minuten) per weekdag. Leeg of 0 = geen referentietijd.`,
+      `
+      <div class="demo-panel">
         <form method="POST" action="/wizard/reference/rooster/save">
           <input type="hidden" name="employee_id" value="${employeeId}" />
-          <table>
+          <table class="demo-table">
             <thead><tr><th>Dag</th><th>Referentietijd (min)</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
 
-          <div class="row" style="margin-top:14px;">
-            <a class="btn secondary" href="/wizard/reference">Annuleren</a>
-            <button class="btn" type="submit">Opslaan</button>
+          <div class="demo-actions">
+            <a class="btn secondary" href="/wizard/reference">TERUG NAAR STAP 3</a>
+            <button class="btn primary" type="submit">OPSLAAN</button>
           </div>
         </form>
-      </div>`
+      </div>
+      `
     )
   );
 });
@@ -466,28 +500,6 @@ router.get("/wizard/reference/kalender", async (req, res) => {
   const emp = await getEmployee(company.id, employeeId);
   if (!emp) return res.redirect("/wizard/reference");
 
-  // Bepaal welke dagen gelocked zijn: vanaf de eerste geldige IN-scan kan de referentietijd niet meer aangepast worden.
-  const lockedRows = await all(
-    `SELECT DISTINCT (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day
-     FROM scan_events
-     WHERE employee_id=$1
-       AND direction='IN'
-     ORDER BY day ASC`,
-    [employeeId]
-  );
-
-  // PG kan DATE als Date-object teruggeven. We normaliseren altijd naar yyyy-mm-dd.
-  const lockedSet = new Set(
-    lockedRows
-      .map((r) => {
-        const d = r.day instanceof Date
-          ? DateTime.fromJSDate(r.day, { zone: TZ }).toISODate()
-          : String(r.day).slice(0, 10);
-        return d;
-      })
-      .filter(Boolean)
-  );
-
   const existing = await all(
     `SELECT day, expected_minutes
      FROM employee_reference_calendar
@@ -496,6 +508,23 @@ router.get("/wizard/reference/kalender", async (req, res) => {
     [employeeId]
   );
 
+  // Locked days: vanaf er een IN-scan is, kan referentie van die dag niet meer aangepast worden.
+  const lockedRows = await all(
+    `SELECT DISTINCT (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day
+     FROM scan_events
+     WHERE employee_id=$1 AND direction='IN'`,
+    [employeeId]
+  );
+  const lockedSet = new Set(
+    lockedRows.map((r) => {
+      if (r.day instanceof Date) {
+        return DateTime.fromJSDate(r.day, { zone: TZ }).toISODate();
+      }
+      return String(r.day).slice(0, 10);
+    })
+  );
+
+  // PG kan DATE als Date-object teruggeven. We normaliseren altijd naar yyyy-mm-dd.
   const existingMap = new Map(
     existing.map((r) => {
       const d = r.day instanceof Date
@@ -505,65 +534,68 @@ router.get("/wizard/reference/kalender", async (req, res) => {
     })
   );
 
-  // Toon standaard komende 14 dagen als invullijst (sparse; lege dagen = geen referentietijd)
-  // Belangrijk: we gebruiken unieke field-names per datum om parsing-bugs te vermijden.
+  // Toon demo beperkt: komende 15 dagen
   const today = DateTime.now().setZone(TZ).startOf("day");
   const days = [];
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 15; i++) {
     days.push(today.plus({ days: i }).toISODate());
   }
 
   const rows = days
     .map((d) => {
       const val = existingMap.get(d) ?? "";
-      const isLocked = lockedSet.has(d);
-      return `<tr>
-        <td><code>${escapeHtml(d)}</code></td>
-        <td style="display:flex; gap:10px; align-items:center;">
-          <input type="number" min="0" name="m_${escapeHtml(d)}" placeholder="min" value="${escapeHtml(val)}" ${isLocked ? "disabled" : ""} />
-          ${isLocked ? "<span class='badge warn'>LOCKED</span>" : ""}
-        </td>
-      </tr>`;
+      const locked = lockedSet.has(d);
+      return `
+        <tr>
+          <td><b>${escapeHtml(DateTime.fromISO(d).setZone(TZ).toFormat("cccc"))}</b><br/><code>${escapeHtml(d)}</code></td>
+          <td>
+            <input type="number" min="0" name="m_${escapeHtml(d)}" placeholder="min" value="${escapeHtml(val)}" ${locked ? "disabled" : ""} />
+            ${locked ? '<div style="margin-top:6px;"><span class="demo-badge warn">LOCKED</span></div>' : ""}
+          </td>
+        </tr>`;
     })
     .join("");
 
   return res.send(
-    layout(
+    demoPage(
       "Kalender invullen",
-      `<div class="card">
-        <h1>Kalender invullen</h1>
-        <p class="muted">Werknemer: <b>${escapeHtml(emp.display_name || "—")}</b></p>
-        <p class="muted">Vul referentietijd in per dag (in minuten). Leeg of 0 = geen referentietijd op die dag.</p>
-        <p class="muted">Tip: 8u = 480 minuten.</p>
-        <p class="muted"><b>Opgelet:</b> Dagen waarop al een <b>IN-scan</b> werd geregistreerd zijn <b>LOCKED</b> en kunnen niet meer aangepast worden.</p>
-
+      "REFERENTIETIJD",
+      "KALENDER",
+      `Werknemer: <b>${escapeHtml(emp.display_name || "—")}</b><br/>
+       Je hoeft enkel de dagen in te vullen waarop je zeker een scan-IN zal hebben.<br/>
+       <b>Opgelet:</b> zodra er een IN-scan is op een dag, kan de referentieduur van die dag niet meer aangepast worden.`,
+      `
+      <div class="demo-panel">
+        <p class="demo-sub" style="margin-top:0;">De demo is beperkt tot de volgende 15 dagen.</p>
         <form method="POST" action="/wizard/reference/kalender/save">
           <input type="hidden" name="employee_id" value="${employeeId}" />
 
-          <table>
+          <table class="demo-table">
             <thead><tr><th>Dag</th><th>Referentietijd (min)</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
 
-          <hr />
-          <p class="muted"><b>Extra dag toevoegen</b> (optioneel)</p>
-          <div class="row" style="gap:10px; align-items:end;">
-            <div>
-              <label class="muted">Dag</label><br/>
-              <input type="date" name="extra_day" />
-            </div>
-            <div>
-              <label class="muted">Minuten</label><br/>
-              <input type="number" min="0" name="extra_minutes" placeholder="min" />
+          <div class="demo-panel" style="margin-top:12px;">
+            <p class="demo-sub" style="margin-top:0;"><b>Extra dag toevoegen</b> (optioneel)</p>
+            <div class="demo-row">
+              <div class="demo-field">
+                <label>Dag</label>
+                <input type="date" name="extra_day" />
+              </div>
+              <div class="demo-field">
+                <label>Minuten</label>
+                <input type="number" min="0" name="extra_minutes" placeholder="min" />
+              </div>
             </div>
           </div>
 
-          <div class="row" style="margin-top:14px;">
-            <a class="btn secondary" href="/wizard/reference">Annuleren</a>
-            <button class="btn" type="submit">Opslaan</button>
+          <div class="demo-actions">
+            <a class="btn secondary" href="/wizard/reference">TERUG NAAR STAP 3</a>
+            <button class="btn primary" type="submit">OPSLAAN</button>
           </div>
         </form>
-      </div>`
+      </div>
+      `
     )
   );
 });
@@ -579,28 +611,23 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
 
   await run(`UPDATE employees SET reference_mode='KALENDER' WHERE id=$1`, [employeeId]);
 
-  // LOCK-regel:
-  // Van zodra er een IN-scan bestaat op een dag (Belgische datum) kan de referentieduur van die dag niet meer aangepast worden.
+  // Locked days: dagen met een IN-scan mogen niet aangepast/gewist worden.
   const lockedRows = await all(
     `SELECT DISTINCT (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day
      FROM scan_events
-     WHERE employee_id=$1
-       AND direction='IN'`,
+     WHERE employee_id=$1 AND direction='IN'`,
     [employeeId]
   );
-
-  const lockedDays = new Set(
-    lockedRows
-      .map((r) => {
-        const d = r.day instanceof Date
-          ? DateTime.fromJSDate(r.day, { zone: TZ }).toISODate()
-          : String(r.day).slice(0, 10);
-        return d;
-      })
-      .filter(Boolean)
+  const lockedSet = new Set(
+    lockedRows.map((r) => {
+      if (r.day instanceof Date) {
+        return DateTime.fromJSDate(r.day, { zone: TZ }).toISODate();
+      }
+      return String(r.day).slice(0, 10);
+    })
   );
 
-  // Verwijder enkel niet-locked kalenderregels (locked dagen blijven onaantastbaar)
+  // Verwijder enkel niet-locked dagen (sparse kalender)
   await run(
     `DELETE FROM employee_reference_calendar
      WHERE employee_id=$1
@@ -612,14 +639,12 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
     [employeeId]
   );
 
-  // We verwachten velden m_YYYY-MM-DD.
+  // We verwachten velden m_YYYY-MM-DD. Dit is robuuster dan arrays met dezelfde name.
   for (const [key, value] of Object.entries(req.body || {})) {
-    if (!key.startsWith('m_')) continue;
+    if (!key.startsWith("m_")) continue;
     const day = key.slice(2);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
-
-    // Skip locked days (server-side hard block)
-    if (lockedDays.has(day)) continue;
+    if (lockedSet.has(day)) continue;
 
     const minutes = Number(value);
     if (!Number.isFinite(minutes) || minutes <= 0) continue;
@@ -633,29 +658,56 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
   }
 
   // Optioneel: extra dag toevoegen
-  const extraDay = String(req.body.extra_day || '').slice(0, 10);
+  const extraDay = String(req.body.extra_day || "").slice(0, 10);
   const extraMinutes = Number(req.body.extra_minutes);
   if (
     extraDay &&
     /^\d{4}-\d{2}-\d{2}$/.test(extraDay) &&
+    !lockedSet.has(extraDay) &&
     Number.isFinite(extraMinutes) &&
     extraMinutes > 0
   ) {
-    // Skip locked extra day as well
-    if (!lockedDays.has(extraDay)) {
-      await run(
-        `INSERT INTO employee_reference_calendar (employee_id, day, expected_minutes)
-         VALUES ($1,$2,$3)
-         ON CONFLICT (employee_id, day) DO UPDATE SET expected_minutes=EXCLUDED.expected_minutes`,
-        [employeeId, extraDay, Math.floor(extraMinutes)]
-      );
-    }
+    await run(
+      `INSERT INTO employee_reference_calendar (employee_id, day, expected_minutes)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (employee_id, day) DO UPDATE SET expected_minutes=EXCLUDED.expected_minutes`,
+      [employeeId, extraDay, Math.floor(extraMinutes)]
+    );
   }
 
-  return res.redirect('/wizard/reference');
+  return res.redirect("/wizard/reference");
 });
 
-// STEP 4 — QR / ScanTag
+// DONE
+router.get("/wizard/done", async (req, res) => {
+  const company = await getCompany();
+  if (!company) return res.redirect("/wizard/company");
+  const employees = await getEmployees(company.id);
+  if (employees.length < 2) return res.redirect("/wizard/employees");
+  for (const e of employees) {
+    const ok = await isEmployeeReferenceOk(e.id);
+    if (!ok) return res.redirect("/wizard/reference");
+  }
+
+  return res.send(
+    demoPage(
+      "AFGEWERKT",
+      "DEMO UITTESTEN – IN 3 STAPPEN",
+      "AFGEWERKT.",
+      `Je demo-omgeving is klaar. Je kan nu de ScanTag bekijken.`,
+      `
+      <div class="demo-panel">
+        <p class="demo-sub" style="margin-top:0;">Onderneming: <b>${escapeHtml(company.name)}</b></p>
+        <div class="demo-actions">
+          <a class="btn primary" href="/wizard/qrs">LOGIN</a>
+        </div>
+      </div>
+      `
+    )
+  );
+});
+
+// STEP 4 — QR / ScanTag (na "login")
 router.get("/wizard/qrs", async (req, res) => {
   const company = await getCompany();
   if (!company) return res.redirect("/wizard/company");

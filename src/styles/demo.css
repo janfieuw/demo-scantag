@@ -1,0 +1,206 @@
+/*
+  Demo / Wizard styling (definitieve opmaak zoals in schermen-demo.pdf)
+  - Links: gele kolom
+  - Rechts: sfeerbeeld (placeholder SVG)
+*/
+
+.demo-body {
+  margin: 0;
+  padding: 0;
+  background: #f5f6f7;
+}
+
+.demo-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 520px 1fr;
+}
+
+.demo-left {
+  background: #fdc500;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 28px;
+}
+
+.demo-left-inner {
+  max-width: 460px;
+}
+
+.demo-kicker {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.demo-title {
+  font-size: 32px;
+  margin: 0 0 10px 0;
+  line-height: 1.08;
+}
+
+.demo-sub {
+  margin: 0 0 18px 0;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.demo-panel {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.demo-panel + .demo-panel {
+  margin-top: 12px;
+}
+
+.demo-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.demo-field input,
+.demo-field select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  padding: 10px 12px;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.demo-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.demo-row > * {
+  flex: 1;
+}
+
+.demo-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.demo-actions .btn {
+  border-radius: 999px;
+  padding: 10px 16px;
+}
+
+.demo-actions .btn.primary {
+  background: #111;
+  color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.demo-actions .btn.secondary {
+  background: rgba(255, 255, 255, 0.65);
+  color: #000;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.demo-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.demo-table th,
+.demo-table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.demo-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.demo-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.demo-badge.ok {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.demo-badge.warn {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.demo-brand {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.demo-logo {
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  background: rgba(255, 255, 255, 0.35);
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.demo-right {
+  background: #e9edf2;
+  background-image: url('/static/demo-right.svg');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+
+.demo-right-overlay {
+  position: absolute;
+  right: 26px;
+  bottom: 26px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 18px;
+  padding: 14px 16px;
+  max-width: 420px;
+}
+
+.demo-right-title {
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.demo-right-subtitle {
+  margin-top: 6px;
+  color: rgba(0, 0, 0, 0.7);
+  font-size: 13px;
+}
+
+@media (max-width: 980px) {
+  .demo-shell {
+    grid-template-columns: 1fr;
+  }
+  .demo-right {
+    display: none;
+  }
+}

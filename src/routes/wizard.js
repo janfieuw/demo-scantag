@@ -466,6 +466,28 @@ router.get("/wizard/reference/kalender", async (req, res) => {
   const emp = await getEmployee(company.id, employeeId);
   if (!emp) return res.redirect("/wizard/reference");
 
+  // Bepaal welke dagen gelocked zijn: vanaf de eerste geldige IN-scan kan de referentietijd niet meer aangepast worden.
+  const lockedRows = await all(
+    `SELECT DISTINCT (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day
+     FROM scan_events
+     WHERE employee_id=$1
+       AND direction='IN'
+     ORDER BY day ASC`,
+    [employeeId]
+  );
+
+  // PG kan DATE als Date-object teruggeven. We normaliseren altijd naar yyyy-mm-dd.
+  const lockedSet = new Set(
+    lockedRows
+      .map((r) => {
+        const d = r.day instanceof Date
+          ? DateTime.fromJSDate(r.day, { zone: TZ }).toISODate()
+          : String(r.day).slice(0, 10);
+        return d;
+      })
+      .filter(Boolean)
+  );
+
   const existing = await all(
     `SELECT day, expected_minutes
      FROM employee_reference_calendar
@@ -474,7 +496,6 @@ router.get("/wizard/reference/kalender", async (req, res) => {
     [employeeId]
   );
 
-  // PG kan DATE als Date-object teruggeven. We normaliseren altijd naar yyyy-mm-dd.
   const existingMap = new Map(
     existing.map((r) => {
       const d = r.day instanceof Date
@@ -485,7 +506,7 @@ router.get("/wizard/reference/kalender", async (req, res) => {
   );
 
   // Toon standaard komende 14 dagen als invullijst (sparse; lege dagen = geen referentietijd)
-  // Belangrijk: we gebruiken unieke field-names per datum om parsing-bugs (arrays vs. single values) te vermijden.
+  // Belangrijk: we gebruiken unieke field-names per datum om parsing-bugs te vermijden.
   const today = DateTime.now().setZone(TZ).startOf("day");
   const days = [];
   for (let i = 0; i < 14; i++) {
@@ -495,10 +516,12 @@ router.get("/wizard/reference/kalender", async (req, res) => {
   const rows = days
     .map((d) => {
       const val = existingMap.get(d) ?? "";
+      const isLocked = lockedSet.has(d);
       return `<tr>
         <td><code>${escapeHtml(d)}</code></td>
-        <td>
-          <input type="number" min="0" name="m_${escapeHtml(d)}" placeholder="min" value="${escapeHtml(val)}" />
+        <td style="display:flex; gap:10px; align-items:center;">
+          <input type="number" min="0" name="m_${escapeHtml(d)}" placeholder="min" value="${escapeHtml(val)}" ${isLocked ? "disabled" : ""} />
+          ${isLocked ? "<span class='badge warn'>LOCKED</span>" : ""}
         </td>
       </tr>`;
     })
@@ -512,6 +535,7 @@ router.get("/wizard/reference/kalender", async (req, res) => {
         <p class="muted">Werknemer: <b>${escapeHtml(emp.display_name || "—")}</b></p>
         <p class="muted">Vul referentietijd in per dag (in minuten). Leeg of 0 = geen referentietijd op die dag.</p>
         <p class="muted">Tip: 8u = 480 minuten.</p>
+        <p class="muted"><b>Opgelet:</b> Dagen waarop al een <b>IN-scan</b> werd geregistreerd zijn <b>LOCKED</b> en kunnen niet meer aangepast worden.</p>
 
         <form method="POST" action="/wizard/reference/kalender/save">
           <input type="hidden" name="employee_id" value="${employeeId}" />
@@ -554,13 +578,48 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
   if (!emp) return res.redirect("/wizard/reference");
 
   await run(`UPDATE employees SET reference_mode='KALENDER' WHERE id=$1`, [employeeId]);
-  await run(`DELETE FROM employee_reference_calendar WHERE employee_id=$1`, [employeeId]);
 
-  // We verwachten velden m_YYYY-MM-DD. Dit is robuuster dan arrays met dezelfde name.
+  // LOCK-regel:
+  // Van zodra er een IN-scan bestaat op een dag (Belgische datum) kan de referentieduur van die dag niet meer aangepast worden.
+  const lockedRows = await all(
+    `SELECT DISTINCT (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day
+     FROM scan_events
+     WHERE employee_id=$1
+       AND direction='IN'`,
+    [employeeId]
+  );
+
+  const lockedDays = new Set(
+    lockedRows
+      .map((r) => {
+        const d = r.day instanceof Date
+          ? DateTime.fromJSDate(r.day, { zone: TZ }).toISODate()
+          : String(r.day).slice(0, 10);
+        return d;
+      })
+      .filter(Boolean)
+  );
+
+  // Verwijder enkel niet-locked kalenderregels (locked dagen blijven onaantastbaar)
+  await run(
+    `DELETE FROM employee_reference_calendar
+     WHERE employee_id=$1
+       AND day NOT IN (
+         SELECT DISTINCT (timestamp AT TIME ZONE 'Europe/Brussels')::date
+         FROM scan_events
+         WHERE employee_id=$1 AND direction='IN'
+       )`,
+    [employeeId]
+  );
+
+  // We verwachten velden m_YYYY-MM-DD.
   for (const [key, value] of Object.entries(req.body || {})) {
-    if (!key.startsWith("m_")) continue;
+    if (!key.startsWith('m_')) continue;
     const day = key.slice(2);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+
+    // Skip locked days (server-side hard block)
+    if (lockedDays.has(day)) continue;
 
     const minutes = Number(value);
     if (!Number.isFinite(minutes) || minutes <= 0) continue;
@@ -574,18 +633,26 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
   }
 
   // Optioneel: extra dag toevoegen
-  const extraDay = String(req.body.extra_day || "").slice(0, 10);
+  const extraDay = String(req.body.extra_day || '').slice(0, 10);
   const extraMinutes = Number(req.body.extra_minutes);
-  if (extraDay && /^\d{4}-\d{2}-\d{2}$/.test(extraDay) && Number.isFinite(extraMinutes) && extraMinutes > 0) {
-    await run(
-      `INSERT INTO employee_reference_calendar (employee_id, day, expected_minutes)
-       VALUES ($1,$2,$3)
-       ON CONFLICT (employee_id, day) DO UPDATE SET expected_minutes=EXCLUDED.expected_minutes`,
-      [employeeId, extraDay, Math.floor(extraMinutes)]
-    );
+  if (
+    extraDay &&
+    /^\d{4}-\d{2}-\d{2}$/.test(extraDay) &&
+    Number.isFinite(extraMinutes) &&
+    extraMinutes > 0
+  ) {
+    // Skip locked extra day as well
+    if (!lockedDays.has(extraDay)) {
+      await run(
+        `INSERT INTO employee_reference_calendar (employee_id, day, expected_minutes)
+         VALUES ($1,$2,$3)
+         ON CONFLICT (employee_id, day) DO UPDATE SET expected_minutes=EXCLUDED.expected_minutes`,
+        [employeeId, extraDay, Math.floor(extraMinutes)]
+      );
+    }
   }
 
-  return res.redirect("/wizard/reference");
+  return res.redirect('/wizard/reference');
 });
 
 // STEP 4 — QR / ScanTag

@@ -470,21 +470,33 @@ router.get("/wizard/reference/kalender", async (req, res) => {
      ORDER BY day ASC`,
     [employeeId]
   );
-  const existingMap = new Map(existing.map((r) => [String(r.day).slice(0, 10), Number(r.expected_minutes)]));
+
+  // PG kan DATE als Date-object teruggeven. We normaliseren altijd naar yyyy-mm-dd.
+  const existingMap = new Map(
+    existing.map((r) => {
+      const d = r.day instanceof Date
+        ? DateTime.fromJSDate(r.day, { zone: TZ }).toISODate()
+        : String(r.day).slice(0, 10);
+      return [d, Number(r.expected_minutes)];
+    })
+  );
 
   // Toon standaard komende 14 dagen als invullijst (sparse; lege dagen = geen referentietijd)
-  const today = DateTime.now().setZone("Europe/Brussels").startOf("day");
+  // Belangrijk: we gebruiken unieke field-names per datum om parsing-bugs (arrays vs. single values) te vermijden.
+  const today = DateTime.now().setZone(TZ).startOf("day");
   const days = [];
   for (let i = 0; i < 14; i++) {
-    days.push(today.plus({ days: i }).toFormat("yyyy-LL-dd"));
+    days.push(today.plus({ days: i }).toISODate());
   }
 
   const rows = days
     .map((d) => {
       const val = existingMap.get(d) ?? "";
       return `<tr>
-        <td><input type="date" name="day" value="${escapeHtml(d)}" /></td>
-        <td><input type="number" min="0" name="minutes" placeholder="min" value="${escapeHtml(val)}" /></td>
+        <td><code>${escapeHtml(d)}</code></td>
+        <td>
+          <input type="number" min="0" name="m_${escapeHtml(d)}" placeholder="min" value="${escapeHtml(val)}" />
+        </td>
       </tr>`;
     })
     .join("");
@@ -496,6 +508,7 @@ router.get("/wizard/reference/kalender", async (req, res) => {
         <h1>Kalender invullen</h1>
         <p class="muted">Werknemer: <b>${escapeHtml(emp.display_name || "—")}</b></p>
         <p class="muted">Vul referentietijd in per dag (in minuten). Leeg of 0 = geen referentietijd op die dag.</p>
+        <p class="muted">Tip: 8u = 480 minuten.</p>
 
         <form method="POST" action="/wizard/reference/kalender/save">
           <input type="hidden" name="employee_id" value="${employeeId}" />
@@ -504,6 +517,19 @@ router.get("/wizard/reference/kalender", async (req, res) => {
             <thead><tr><th>Dag</th><th>Referentietijd (min)</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
+
+          <hr />
+          <p class="muted"><b>Extra dag toevoegen</b> (optioneel)</p>
+          <div class="row" style="gap:10px; align-items:end;">
+            <div>
+              <label class="muted">Dag</label><br/>
+              <input type="date" name="extra_day" />
+            </div>
+            <div>
+              <label class="muted">Minuten</label><br/>
+              <input type="number" min="0" name="extra_minutes" placeholder="min" />
+            </div>
+          </div>
 
           <div class="row" style="margin-top:14px;">
             <a class="btn secondary" href="/wizard/reference">Annuleren</a>
@@ -527,18 +553,13 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
   await run(`UPDATE employees SET reference_mode='KALENDER' WHERE id=$1`, [employeeId]);
   await run(`DELETE FROM employee_reference_calendar WHERE employee_id=$1`, [employeeId]);
 
-  // Omdat inputs dezelfde naam hebben (day/minutes), krijgen we arrays of single values
-  const days = req.body.day;
-  const mins = req.body.minutes;
+  // We verwachten velden m_YYYY-MM-DD. Dit is robuuster dan arrays met dezelfde name.
+  for (const [key, value] of Object.entries(req.body || {})) {
+    if (!key.startsWith("m_")) continue;
+    const day = key.slice(2);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
 
-  const dayArr = Array.isArray(days) ? days : days ? [days] : [];
-  const minArr = Array.isArray(mins) ? mins : mins ? [mins] : [];
-
-  const count = Math.min(dayArr.length, minArr.length);
-  for (let i = 0; i < count; i++) {
-    const day = String(dayArr[i] || "").slice(0, 10);
-    const minutes = Number(minArr[i]);
-    if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    const minutes = Number(value);
     if (!Number.isFinite(minutes) || minutes <= 0) continue;
 
     await run(
@@ -546,6 +567,18 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
        VALUES ($1,$2,$3)
        ON CONFLICT (employee_id, day) DO UPDATE SET expected_minutes=EXCLUDED.expected_minutes`,
       [employeeId, day, Math.floor(minutes)]
+    );
+  }
+
+  // Optioneel: extra dag toevoegen
+  const extraDay = String(req.body.extra_day || "").slice(0, 10);
+  const extraMinutes = Number(req.body.extra_minutes);
+  if (extraDay && /^\d{4}-\d{2}-\d{2}$/.test(extraDay) && Number.isFinite(extraMinutes) && extraMinutes > 0) {
+    await run(
+      `INSERT INTO employee_reference_calendar (employee_id, day, expected_minutes)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (employee_id, day) DO UPDATE SET expected_minutes=EXCLUDED.expected_minutes`,
+      [employeeId, extraDay, Math.floor(extraMinutes)]
     );
   }
 

@@ -14,13 +14,16 @@ async function initDb() {
       id SERIAL PRIMARY KEY,
       company_id INT NOT NULL REFERENCES companies(id),
       display_name TEXT,
-      scan_code TEXT
+      scan_code TEXT,
+      reference_mode TEXT
     );
   `);
 
   // Migratie-light: als de tabel al bestond met oude kolommen, zorgen we dat nieuwe kolommen bestaan.
   await run(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS display_name TEXT;`);
   await run(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS scan_code TEXT;`);
+  await run(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS reference_mode TEXT;`);
+  await run(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS reference_mode TEXT;`);
 
   // Als je vroeger "code" had, kopieer dat naar scan_code (zodat oude rows niet crashen).
   // (Als kolom 'code' niet bestaat, faalt dit; daarom doen we dit met een DO-block.)
@@ -42,6 +45,35 @@ async function initDb() {
     CREATE UNIQUE INDEX IF NOT EXISTS employees_company_scan_code_uq
     ON employees(company_id, scan_code)
     WHERE scan_code IS NOT NULL;
+  `);
+
+  // Referentietijd: ROOSTER (weekday->minutes) of KALENDER (date->minutes)
+  await run(`
+    CREATE TABLE IF NOT EXISTS employee_reference_pattern (
+      id SERIAL PRIMARY KEY,
+      employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 7),
+      expected_minutes INT NOT NULL CHECK (expected_minutes >= 0)
+    );
+  `);
+
+  await run(`
+    CREATE UNIQUE INDEX IF NOT EXISTS employee_reference_pattern_uq
+    ON employee_reference_pattern(employee_id, weekday);
+  `);
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS employee_reference_calendar (
+      id SERIAL PRIMARY KEY,
+      employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      day DATE NOT NULL,
+      expected_minutes INT NOT NULL CHECK (expected_minutes >= 0)
+    );
+  `);
+
+  await run(`
+    CREATE UNIQUE INDEX IF NOT EXISTS employee_reference_calendar_uq
+    ON employee_reference_calendar(employee_id, day);
   `);
 
   await run(`
@@ -75,6 +107,35 @@ async function initDb() {
 
   await run(`CREATE INDEX IF NOT EXISTS idx_device_bindings_token ON device_bindings(token);`);
   await run(`CREATE INDEX IF NOT EXISTS idx_scan_events_employee ON scan_events(employee_id);`);
+
+  // Referentietijd (ROOSTER / KALENDER)
+  await run(`
+    CREATE TABLE IF NOT EXISTS employee_reference_pattern (
+      id SERIAL PRIMARY KEY,
+      employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 7),
+      expected_minutes INT NOT NULL CHECK (expected_minutes >= 0)
+    );
+  `);
+
+  await run(`
+    CREATE UNIQUE INDEX IF NOT EXISTS employee_reference_pattern_uq
+    ON employee_reference_pattern(employee_id, weekday);
+  `);
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS employee_reference_calendar (
+      id SERIAL PRIMARY KEY,
+      employee_id INT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      day DATE NOT NULL,
+      expected_minutes INT NOT NULL CHECK (expected_minutes >= 0)
+    );
+  `);
+
+  await run(`
+    CREATE UNIQUE INDEX IF NOT EXISTS employee_reference_calendar_uq
+    ON employee_reference_calendar(employee_id, day);
+  `);
 }
 
 module.exports = { initDb };

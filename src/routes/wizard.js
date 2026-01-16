@@ -1,5 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
+const { DateTime } = require("luxon");
 const { get, all, run } = require("../db");
 const { layout, escapeHtml } = require("../ui/layout");
 
@@ -11,11 +12,36 @@ async function getCompany() {
 
 async function getEmployees(companyId) {
   return await all(
-    `SELECT id, display_name, scan_code
+    `SELECT id, display_name, scan_code, reference_mode
      FROM employees
      WHERE company_id = $1
      ORDER BY id`,
     [companyId]
+  );
+}
+
+async function getEmployee(companyId, employeeId) {
+  return await get(
+    `SELECT id, company_id, display_name, scan_code, reference_mode
+     FROM employees
+     WHERE id=$1 AND company_id=$2
+     LIMIT 1`,
+    [employeeId, companyId]
+  );
+}
+
+function weekdayLabel(dow) {
+  // Luxon: 1=Monday ... 7=Sunday
+  return (
+    {
+      1: "ma",
+      2: "di",
+      3: "wo",
+      4: "do",
+      5: "vr",
+      6: "za",
+      7: "zo",
+    }[dow] || String(dow)
   );
 }
 
@@ -46,6 +72,8 @@ async function generateUniqueScanCode(companyId) {
 router.post("/wizard/reset", async (req, res) => {
   await run(`DELETE FROM scan_events`);
   await run(`DELETE FROM device_bindings`);
+  await run(`DELETE FROM employee_reference_calendar`);
+  await run(`DELETE FROM employee_reference_pattern`);
   await run(`DELETE FROM scantags`);
   await run(`DELETE FROM employees`);
   await run(`DELETE FROM companies`);
@@ -198,7 +226,7 @@ router.get("/wizard/employees", async (req, res) => {
           <a class="btn secondary" href="/wizard/company">Terug</a>
           ${
             employees.length === 2
-              ? `<a class="btn" href="/wizard/qrs">Volgende</a>`
+              ? `<a class="btn" href="/wizard/reference">Volgende</a>`
               : ""
           }
           <form method="POST" action="/wizard/reset">
@@ -231,13 +259,312 @@ router.post("/wizard/employees/add", async (req, res) => {
   return res.redirect("/wizard/employees");
 });
 
-// STEP 3
+// STEP 3 — Referentietijd (ROOSTER of KALENDER)
+
+async function isEmployeeReferenceOk(employeeId) {
+  const modeRow = await get(`SELECT reference_mode FROM employees WHERE id=$1`, [employeeId]);
+  const mode = modeRow?.reference_mode || null;
+  if (mode === "ROOSTER") {
+    const r = await get(
+      `SELECT 1 FROM employee_reference_pattern WHERE employee_id=$1 AND expected_minutes > 0 LIMIT 1`,
+      [employeeId]
+    );
+    return !!r;
+  }
+  if (mode === "KALENDER") {
+    const r = await get(
+      `SELECT 1 FROM employee_reference_calendar WHERE employee_id=$1 AND expected_minutes > 0 LIMIT 1`,
+      [employeeId]
+    );
+    return !!r;
+  }
+  return false;
+}
+
+router.get("/wizard/reference", async (req, res) => {
+  const company = await getCompany();
+  if (!company) return res.redirect("/wizard/company");
+
+  const employees = await getEmployees(company.id);
+  if (employees.length < 2) return res.redirect("/wizard/employees");
+
+  const okMap = new Map();
+  for (const e of employees) {
+    okMap.set(e.id, await isEmployeeReferenceOk(e.id));
+  }
+  const allOk = employees.every((e) => okMap.get(e.id) === true);
+
+  const rows = employees
+    .map((e, idx) => {
+      const mode = e.reference_mode || "";
+      const isOk = okMap.get(e.id) === true;
+      return `<tr>
+        <td>${idx + 1}</td>
+        <td>${escapeHtml(e.display_name || "—")}</td>
+        <td>
+          <form method="POST" action="/wizard/reference/open" style="margin:0; display:flex; gap:10px; align-items:center;">
+            <input type="hidden" name="employee_id" value="${e.id}" />
+            <select name="mode" required>
+              <option value="" ${mode === "" ? "selected" : ""} disabled>Kies…</option>
+              <option value="ROOSTER" ${mode === "ROOSTER" ? "selected" : ""}>Rooster</option>
+              <option value="KALENDER" ${mode === "KALENDER" ? "selected" : ""}>Kalender</option>
+            </select>
+            <button class="btn" type="submit">Vul aan</button>
+          </form>
+        </td>
+        <td>${isOk ? "<span class=\"badge ok\">OK</span>" : "<span class=\"badge warn\">Niet ingevuld</span>"}</td>
+      </tr>`;
+    })
+    .join("");
+
+  return res.send(
+    layout(
+      "Wizard - Referentietijd",
+      `<div class="card">
+        <h1>3) Stel referentietijd in</h1>
+        <p class="muted">
+          Kies per werknemer <b>Rooster</b> of <b>Kalender</b> en klik daarna op <b>Vul aan</b>.
+          Je komt na opslaan terug naar deze stap.
+        </p>
+        <p class="muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
+
+        <table>
+          <thead><tr><th>#</th><th>Werknemer</th><th>Instelling</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+
+        <div class="row" style="margin-top:14px;">
+          <a class="btn secondary" href="/wizard/employees">Terug</a>
+          ${
+            allOk
+              ? `<a class="btn" href="/wizard/qrs">Volgende</a>`
+              : `<button class="btn" type="button" disabled style="opacity:.5; cursor:not-allowed;">Volgende</button>`
+          }
+          <form method="POST" action="/wizard/reset">
+            <button class="btn secondary" type="submit">Opnieuw beginnen</button>
+          </form>
+        </div>
+      </div>`
+    )
+  );
+});
+
+router.post("/wizard/reference/open", async (req, res) => {
+  const company = await getCompany();
+  if (!company) return res.redirect("/wizard/company");
+
+  const employeeId = Number(req.body.employee_id || 0);
+  const mode = String(req.body.mode || "").trim().toUpperCase();
+  if (!employeeId || (mode !== "ROOSTER" && mode !== "KALENDER")) {
+    return res.redirect("/wizard/reference");
+  }
+
+  const emp = await getEmployee(company.id, employeeId);
+  if (!emp) return res.redirect("/wizard/reference");
+
+  await run(`UPDATE employees SET reference_mode=$1 WHERE id=$2`, [mode, employeeId]);
+
+  if (mode === "ROOSTER") {
+    return res.redirect(`/wizard/reference/rooster?employeeId=${employeeId}`);
+  }
+  return res.redirect(`/wizard/reference/kalender?employeeId=${employeeId}`);
+});
+
+router.get("/wizard/reference/rooster", async (req, res) => {
+  const company = await getCompany();
+  if (!company) return res.redirect("/wizard/company");
+
+  const employeeId = Number(req.query.employeeId || 0);
+  if (!employeeId) return res.redirect("/wizard/reference");
+
+  const emp = await getEmployee(company.id, employeeId);
+  if (!emp) return res.redirect("/wizard/reference");
+
+  const existing = await all(
+    `SELECT weekday, expected_minutes
+     FROM employee_reference_pattern
+     WHERE employee_id=$1
+     ORDER BY weekday ASC`,
+    [employeeId]
+  );
+  const map = new Map(existing.map((r) => [Number(r.weekday), Number(r.expected_minutes)]));
+
+  const rows = [1, 2, 3, 4, 5, 6, 7]
+    .map((dow) => {
+      const val = map.get(dow) ?? "";
+      return `<tr>
+        <td><b>${weekdayLabel(dow)}</b></td>
+        <td><input type="number" min="0" name="m_${dow}" placeholder="min" value="${escapeHtml(val)}" /></td>
+      </tr>`;
+    })
+    .join("");
+
+  return res.send(
+    layout(
+      "Rooster invullen",
+      `<div class="card">
+        <h1>Rooster invullen</h1>
+        <p class="muted">Werknemer: <b>${escapeHtml(emp.display_name || "—")}</b></p>
+        <p class="muted">Vul de referentietijd in (in minuten) per weekdag. Leeg of 0 = geen referentietijd op die dag.</p>
+
+        <form method="POST" action="/wizard/reference/rooster/save">
+          <input type="hidden" name="employee_id" value="${employeeId}" />
+          <table>
+            <thead><tr><th>Dag</th><th>Referentietijd (min)</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+
+          <div class="row" style="margin-top:14px;">
+            <a class="btn secondary" href="/wizard/reference">Annuleren</a>
+            <button class="btn" type="submit">Opslaan</button>
+          </div>
+        </form>
+      </div>`
+    )
+  );
+});
+
+router.post("/wizard/reference/rooster/save", async (req, res) => {
+  const company = await getCompany();
+  if (!company) return res.redirect("/wizard/company");
+
+  const employeeId = Number(req.body.employee_id || 0);
+  if (!employeeId) return res.redirect("/wizard/reference");
+  const emp = await getEmployee(company.id, employeeId);
+  if (!emp) return res.redirect("/wizard/reference");
+
+  await run(`UPDATE employees SET reference_mode='ROOSTER' WHERE id=$1`, [employeeId]);
+  await run(`DELETE FROM employee_reference_pattern WHERE employee_id=$1`, [employeeId]);
+
+  for (const dow of [1, 2, 3, 4, 5, 6, 7]) {
+    const raw = req.body[`m_${dow}`];
+    if (raw === undefined) continue;
+    const minutes = Number(raw);
+    if (!Number.isFinite(minutes) || minutes <= 0) continue;
+
+    await run(
+      `INSERT INTO employee_reference_pattern (employee_id, weekday, expected_minutes)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (employee_id, weekday) DO UPDATE SET expected_minutes=EXCLUDED.expected_minutes`,
+      [employeeId, dow, Math.floor(minutes)]
+    );
+  }
+
+  return res.redirect("/wizard/reference");
+});
+
+router.get("/wizard/reference/kalender", async (req, res) => {
+  const company = await getCompany();
+  if (!company) return res.redirect("/wizard/company");
+
+  const employeeId = Number(req.query.employeeId || 0);
+  if (!employeeId) return res.redirect("/wizard/reference");
+
+  const emp = await getEmployee(company.id, employeeId);
+  if (!emp) return res.redirect("/wizard/reference");
+
+  const existing = await all(
+    `SELECT day, expected_minutes
+     FROM employee_reference_calendar
+     WHERE employee_id=$1
+     ORDER BY day ASC`,
+    [employeeId]
+  );
+  const existingMap = new Map(existing.map((r) => [String(r.day).slice(0, 10), Number(r.expected_minutes)]));
+
+  // Toon standaard komende 14 dagen als invullijst (sparse; lege dagen = geen referentietijd)
+  const today = DateTime.now().setZone("Europe/Brussels").startOf("day");
+  const days = [];
+  for (let i = 0; i < 14; i++) {
+    days.push(today.plus({ days: i }).toFormat("yyyy-LL-dd"));
+  }
+
+  const rows = days
+    .map((d) => {
+      const val = existingMap.get(d) ?? "";
+      return `<tr>
+        <td><input type="date" name="day" value="${escapeHtml(d)}" /></td>
+        <td><input type="number" min="0" name="minutes" placeholder="min" value="${escapeHtml(val)}" /></td>
+      </tr>`;
+    })
+    .join("");
+
+  return res.send(
+    layout(
+      "Kalender invullen",
+      `<div class="card">
+        <h1>Kalender invullen</h1>
+        <p class="muted">Werknemer: <b>${escapeHtml(emp.display_name || "—")}</b></p>
+        <p class="muted">Vul referentietijd in per dag (in minuten). Leeg of 0 = geen referentietijd op die dag.</p>
+
+        <form method="POST" action="/wizard/reference/kalender/save">
+          <input type="hidden" name="employee_id" value="${employeeId}" />
+
+          <table>
+            <thead><tr><th>Dag</th><th>Referentietijd (min)</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+
+          <div class="row" style="margin-top:14px;">
+            <a class="btn secondary" href="/wizard/reference">Annuleren</a>
+            <button class="btn" type="submit">Opslaan</button>
+          </div>
+        </form>
+      </div>`
+    )
+  );
+});
+
+router.post("/wizard/reference/kalender/save", async (req, res) => {
+  const company = await getCompany();
+  if (!company) return res.redirect("/wizard/company");
+
+  const employeeId = Number(req.body.employee_id || 0);
+  if (!employeeId) return res.redirect("/wizard/reference");
+  const emp = await getEmployee(company.id, employeeId);
+  if (!emp) return res.redirect("/wizard/reference");
+
+  await run(`UPDATE employees SET reference_mode='KALENDER' WHERE id=$1`, [employeeId]);
+  await run(`DELETE FROM employee_reference_calendar WHERE employee_id=$1`, [employeeId]);
+
+  // Omdat inputs dezelfde naam hebben (day/minutes), krijgen we arrays of single values
+  const days = req.body.day;
+  const mins = req.body.minutes;
+
+  const dayArr = Array.isArray(days) ? days : days ? [days] : [];
+  const minArr = Array.isArray(mins) ? mins : mins ? [mins] : [];
+
+  const count = Math.min(dayArr.length, minArr.length);
+  for (let i = 0; i < count; i++) {
+    const day = String(dayArr[i] || "").slice(0, 10);
+    const minutes = Number(minArr[i]);
+    if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    if (!Number.isFinite(minutes) || minutes <= 0) continue;
+
+    await run(
+      `INSERT INTO employee_reference_calendar (employee_id, day, expected_minutes)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (employee_id, day) DO UPDATE SET expected_minutes=EXCLUDED.expected_minutes`,
+      [employeeId, day, Math.floor(minutes)]
+    );
+  }
+
+  return res.redirect("/wizard/reference");
+});
+
+// STEP 4 — QR / ScanTag
 router.get("/wizard/qrs", async (req, res) => {
   const company = await getCompany();
   if (!company) return res.redirect("/wizard/company");
 
   const employees = await getEmployees(company.id);
   if (employees.length < 2) return res.redirect("/wizard/employees");
+
+  // Gate: referentietijd moet voor iedereen ingevuld zijn
+  for (const e of employees) {
+    const ok = await isEmployeeReferenceOk(e.id);
+    if (!ok) return res.redirect("/wizard/reference");
+  }
 
   const tag = await getScantag(company.id);
   if (!tag) {

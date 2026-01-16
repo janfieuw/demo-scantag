@@ -6,6 +6,9 @@ const { layout, escapeHtml } = require("../ui/layout");
 
 const router = express.Router();
 
+// Wizard en referentietijd werken in Belgische tijd
+const TZ = "Europe/Brussels";
+
 async function getCompany() {
   return await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
 }

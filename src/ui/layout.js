@@ -7,6 +7,7 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
+/* Standaard layout (admin / rapporten) */
 function layout(title, bodyHtml) {
   return `<!doctype html>
 <html lang="nl">
@@ -17,30 +18,27 @@ function layout(title, bodyHtml) {
   <link rel="stylesheet" href="/static/base.css" />
 </head>
 <body>
-  <div class="wrap">
-    ${bodyHtml}
-  </div>
+  ${bodyHtml}
 </body>
 </html>`;
 }
 
-// Demo / Wizard layout (zoals in de "schermen-demo" mock): split-screen
-// Links: gele kolom met inhoud. Rechts: vaste sfeer-afbeelding.
-function layoutDemo(title, leftHtml, opts = {}) {
-  const rightTitle = opts.rightTitle ? escapeHtml(opts.rightTitle) : "";
-  const rightSubtitle = opts.rightSubtitle ? escapeHtml(opts.rightSubtitle) : "";
-
+/* DEMO / WIZARD layout */
+function layoutDemo(title, leftHtml) {
   return `<!doctype html>
 <html lang="nl">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
+
   <link rel="stylesheet" href="/static/base.css" />
   <link rel="stylesheet" href="/static/demo.css" />
 </head>
 <body class="demo-body">
   <div class="demo-shell">
+
+    <!-- LINKER KANT -->
     <aside class="demo-left">
       <div class="demo-left-inner">
         ${leftHtml}
@@ -51,15 +49,23 @@ function layoutDemo(title, leftHtml, opts = {}) {
       </div>
     </aside>
 
+    <!-- RECHTER KANT -->
     <section class="demo-right" aria-hidden="true">
-      <div class="demo-right-overlay">
-        ${rightTitle ? `<div class="demo-right-title">${rightTitle}</div>` : ""}
-        ${rightSubtitle ? `<div class="demo-right-subtitle">${rightSubtitle}</div>` : ""}
-      </div>
+      <img
+        src="/static/demo-lady.png"
+        class="demo-right-lady"
+        alt=""
+        loading="eager"
+      />
     </section>
+
   </div>
 </body>
 </html>`;
 }
 
-module.exports = { layout, layoutDemo, escapeHtml };
+module.exports = {
+  layout,
+  layoutDemo,
+  escapeHtml,
+};

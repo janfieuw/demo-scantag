@@ -18,22 +18,27 @@ function renderAccount({ error = "", email = "" } = {}) {
     ? `<div class="demo-alert" role="alert">${escapeHtml(error)}</div>`
     : "";
 
+  // BELANGRIJK: géén extra demo-left wrapper hier.
+  // layoutDemo() levert de kolommen; wij leveren enkel de inhoud.
   return renderWithDemoLayout(
-    "Demo - Account",
-    `<div class="demo-left">
-      <div class="demo-kicker">DEMO UITTESTEN - IN 3 STAPPEN</div>
+    "DEMO — ACCOUNT",
+    `
+      <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
       <h1 class="demo-title">ACCOUNT.</h1>
       <p class="demo-lead">Maak een demo-account aan om de wizard te starten.</p>
       ${errorHtml}
 
       <form class="demo-form" method="POST" action="/demo/account">
         <label class="demo-label" for="email">E-mail</label>
-        <input class="demo-input" id="email" name="email" type="email" placeholder="bv. jan@bedrijf.be" value="${escapeHtml(email)}" required />
+        <input class="demo-input" id="email" name="email" type="email"
+          placeholder="bv. jan@bedrijf.be"
+          value="${escapeHtml(email)}" required />
 
         <div class="demo-spacer"></div>
 
         <label class="demo-label" for="password">Paswoord</label>
-        <input class="demo-input" id="password" name="password" type="password" placeholder="min. 6 tekens" required />
+        <input class="demo-input" id="password" name="password" type="password"
+          placeholder="min. 6 tekens" required />
 
         <div class="demo-spacer"></div>
 
@@ -50,7 +55,7 @@ function renderAccount({ error = "", email = "" } = {}) {
         <div class="demo-sub">PUNCTOO Demo</div>
         <div class="demo-sub">ScanTag + referentietijd (rooster/kalender)</div>
       </div>
-    </div>`
+    `
   );
 }
 
@@ -64,13 +69,19 @@ router.post("/demo/account", async (req, res) => {
   const password2 = String(req.body.password2 || "");
 
   if (!isLikelyEmail(email)) {
-    return res.status(400).send(renderAccount({ error: "Vul een geldig e-mailadres in.", email }));
+    return res.status(400).send(
+      renderAccount({ error: "Vul een geldig e-mailadres in.", email })
+    );
   }
   if (password.length < 6) {
-    return res.status(400).send(renderAccount({ error: "Paswoord moet minstens 6 tekens zijn.", email }));
+    return res.status(400).send(
+      renderAccount({ error: "Paswoord moet minstens 6 tekens zijn.", email })
+    );
   }
   if (password !== password2) {
-    return res.status(400).send(renderAccount({ error: "Paswoorden komen niet overeen.", email }));
+    return res.status(400).send(
+      renderAccount({ error: "Paswoorden komen niet overeen.", email })
+    );
   }
 
   // Demo: geen echte auth, enkel gating-cookie

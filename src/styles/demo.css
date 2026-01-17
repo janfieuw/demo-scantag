@@ -10,7 +10,7 @@
 /* Split screen */
 .demo-shell {
   display: grid;
-  grid-template-columns: 420px 1fr;
+  grid-template-columns: 650px 1fr;
   min-height: 100vh;
 }
 
@@ -70,8 +70,8 @@
 /* Dame rechtsonder */
 .demo-right-lady {
   position: absolute;
-  right: -40px;      /* bewust iets buiten kader */
-  bottom: -10px;
+  right: 100px;      /* bewust iets buiten kader */
+  bottom: -1px;
 
   height: 92vh;      /* groot, hero-gevoel */
   max-height: 980px;

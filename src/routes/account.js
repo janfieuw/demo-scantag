@@ -3,55 +3,59 @@ const { layout, layoutDemo, escapeHtml } = require("../ui/layout");
 
 const router = express.Router();
 
-function renderDemo(title, leftHtml) {
+function renderWithDemoLayout(title, leftHtml) {
   if (typeof layoutDemo === "function") return layoutDemo(title, leftHtml);
-  // Fallback (keeps app working if layoutDemo is missing)
-  return layout(title, `<div class="card">${leftHtml}</div>`);
+  return layout(title, leftHtml);
 }
 
-function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || ""));
+function isLikelyEmail(v) {
+  const s = String(v || "").trim();
+  return s.length >= 5 && s.includes("@") && s.includes(".");
 }
 
-router.get("/demo/account", async (req, res) => {
-  const error = String(req.query.error || "");
-
+function renderAccount({ error = "", email = "" } = {}) {
   const errorHtml = error
-    ? `<div class="demo-error">${escapeHtml(error)}</div>`
+    ? `<div class="demo-alert" role="alert">${escapeHtml(error)}</div>`
     : "";
 
-  const left = `
-    <div class="demo-step">
-      <div class="demo-kicker">DEMO UITTESTEN<br/>IN 3 STAPPEN.</div>
-      <div class="demo-title">ACCOUNT.</div>
-      <div class="demo-text">Maak eerst een account aan.</div>
-      <div class="demo-text">Kies een e-mail adres als login en een paswoord.</div>
-
+  return renderWithDemoLayout(
+    "Demo - Account",
+    `<div class="demo-left">
+      <div class="demo-kicker">DEMO UITTESTEN - IN 3 STAPPEN</div>
+      <h1 class="demo-title">ACCOUNT.</h1>
+      <p class="demo-lead">Maak een demo-account aan om de wizard te starten.</p>
       ${errorHtml}
 
-      <form method="POST" action="/demo/account" class="demo-form">
-        <label class="demo-label" for="email">E-MAIL</label>
-        <input class="demo-input" id="email" name="email" type="email" required />
+      <form class="demo-form" method="POST" action="/demo/account">
+        <label class="demo-label" for="email">E-mail</label>
+        <input class="demo-input" id="email" name="email" type="email" placeholder="bv. jan@bedrijf.be" value="${escapeHtml(email)}" required />
 
-        <label class="demo-label" for="password">PASWOORD</label>
-        <input class="demo-input" id="password" name="password" type="password" required />
+        <div class="demo-spacer"></div>
 
-        <label class="demo-label" for="password2">HERHAAL PASWOORD</label>
+        <label class="demo-label" for="password">Paswoord</label>
+        <input class="demo-input" id="password" name="password" type="password" placeholder="min. 6 tekens" required />
+
+        <div class="demo-spacer"></div>
+
+        <label class="demo-label" for="password2">Herhaal paswoord</label>
         <input class="demo-input" id="password2" name="password2" type="password" required />
 
         <div class="demo-actions">
-          <button class="demo-btn" type="submit">VOLGENDE</button>
+          <button class="demo-btn primary" type="submit">VOLGENDE</button>
         </div>
       </form>
 
-      <div class="demo-brand">
-        <div class="demo-brand-title">PUNCTOO</div>
-        <div class="demo-brand-sub">PUNCTOO Demo</div>
+      <div class="demo-footer">
+        <div class="demo-brand">PUNCTOO</div>
+        <div class="demo-sub">PUNCTOO Demo</div>
+        <div class="demo-sub">ScanTag + referentietijd (rooster/kalender)</div>
       </div>
-    </div>
-  `;
+    </div>`
+  );
+}
 
-  return res.send(renderDemo("Demo - Account", left));
+router.get("/demo/account", async (req, res) => {
+  return res.send(renderAccount());
 });
 
 router.post("/demo/account", async (req, res) => {
@@ -59,28 +63,22 @@ router.post("/demo/account", async (req, res) => {
   const password = String(req.body.password || "");
   const password2 = String(req.body.password2 || "");
 
-  if (!isValidEmail(email)) {
-    return res.redirect("/demo/account?error=Vul%20een%20geldig%20e-mail%20adres%20in");
+  if (!isLikelyEmail(email)) {
+    return res.status(400).send(renderAccount({ error: "Vul een geldig e-mailadres in.", email }));
   }
-  if (!password || password.length < 6) {
-    return res.redirect("/demo/account?error=Paswoord%20moet%20minstens%206%20tekens%20zijn");
+  if (password.length < 6) {
+    return res.status(400).send(renderAccount({ error: "Paswoord moet minstens 6 tekens zijn.", email }));
   }
   if (password !== password2) {
-    return res.redirect("/demo/account?error=Paswoorden%20komen%20niet%20overeen");
+    return res.status(400).send(renderAccount({ error: "Paswoorden komen niet overeen.", email }));
   }
 
-  // Demo: geen echte user-table. We onthouden enkel dat er "een account" is aangemaakt.
+  // Demo: geen echte auth, enkel gating-cookie
   res.cookie("demo_account", "1", {
     httpOnly: true,
     sameSite: "lax",
-    secure: true,
-    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dagen
-  });
-  res.cookie("demo_email", email, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: true,
-    maxAge: 1000 * 60 * 60 * 24 * 7,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 1000 * 60 * 60 * 12, // 12u
   });
 
   return res.redirect("/wizard/company");

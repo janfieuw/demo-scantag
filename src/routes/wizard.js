@@ -159,7 +159,7 @@ router.get("/wizard/company", async (req, res) => {
         <form method="POST" action="/wizard/company">
           <div class="demo-field">
             <label for="name">NAAM ONDERNEMING</label>
-            <input id="name" name="name" placeholder="BV. RE:SOURCE" required />
+            <input id="name" name="name" placeholder="" required />
           </div>
           <div class="demo-actions">
             <button class="btn primary" type="submit">VOLGENDE</button>

@@ -60,9 +60,12 @@ function layoutDemo(title, leftHtml) {
         ${leftHtml}
       </div>
 
-      <div class="demo-brand">
-        <div class="demo-logo">PUNCTOO</div>
-      </div>
+      <img
+  src="/src/styles/logo_punctoo_groot_opgeel.png"
+  alt="MyPunctoo"
+  class="demo-logo-fixed"
+/>
+
     </aside>
 
     <!-- RECHTER ZIJDE -->

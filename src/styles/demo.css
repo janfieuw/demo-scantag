@@ -144,3 +144,25 @@
   font-weight: 700; /* bold */
   color: #ffffff;
 }
+/* =========================
+   LOGO LINKSONDER
+   ========================= */
+
+:root {
+  --logo-offset-left: 24px;   /* ← HIER AANPASSEN */
+  --logo-offset-bottom: 24px; /* ← HIER AANPASSEN */
+}
+
+.demo-logo-fixed {
+  position: fixed;
+  left: var(--logo-offset-left);
+  bottom: var(--logo-offset-bottom);
+
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+
+  z-index: 10;
+  pointer-events: none; /* logo is decoratief */
+}

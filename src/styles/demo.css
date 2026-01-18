@@ -101,3 +101,36 @@
     min-height: 100vh;
   }
 }
+/* Formulier netjes in rooster */
+.demo-form {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  column-gap: 16px;
+  row-gap: 12px;
+  align-items: center;
+}
+
+/* Labels rechts uitlijnen voor strak grid */
+.demo-label {
+  margin: 0;
+  justify-self: end;
+}
+
+/* Inputs vullen kolom 2 */
+.demo-input {
+  width: 100%;
+  max-width: 320px; /* pas aan naar smaak */
+}
+
+/* Spacers zijn niet meer nodig in grid */
+.demo-spacer {
+  display: none;
+}
+
+/* Acties (knoppen) over volledige breedte, netjes uitgelijnd */
+.demo-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}

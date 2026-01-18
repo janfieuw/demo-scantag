@@ -144,6 +144,15 @@
   font-weight: 700; /* bold */
   color: #ffffff;
 }
+.demo-titel {
+  font-size: 20px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 1;
+  margin-bottom: 12px;
+  font-weight: 700; /* bold */
+  color: #140d01;
+  }
 /* =========================
    LOGO LINKSONDER
    ========================= */

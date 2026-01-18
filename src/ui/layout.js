@@ -61,7 +61,7 @@ function layoutDemo(title, leftHtml) {
       </div>
 
       <img
-  src="/src/styles/logo_punctoo_groot_opgeel.png"
+  src="/static/logo_punctoo_groot_opgeel.png"
   alt="MyPunctoo"
   class="demo-logo-fixed"
 />

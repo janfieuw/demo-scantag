@@ -134,3 +134,11 @@
   gap: 12px;
   margin-top: 6px;
 }
+/* Kleine contextregel boven titel */
+.demo-kicker {
+  font-size: 25px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-bottom: 12px;
+}

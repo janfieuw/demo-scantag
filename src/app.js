@@ -18,7 +18,10 @@ function createApp() {
   app.use(cookieParser());
 
   // Styles
-  app.use("/static", express.static(path.join(__dirname, "styles")));
+  // Static assets (styles + images)
+app.use("/static", express.static(path.join(__dirname, "styles")));
+app.use("/static", express.static(path.join(__dirname, "static")));
+
 
   // Landing: start with Account (per definitieve demo-flow)
   app.get("/", (req, res) => {

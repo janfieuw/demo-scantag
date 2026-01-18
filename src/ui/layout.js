@@ -62,7 +62,7 @@ function layoutDemo(title, leftHtml) {
 
     <img src="/static/logo_punctoo_groot_opgeel.png" class="demo-logo-fixed" alt="">
 
-/>
+
 
     </aside>
 

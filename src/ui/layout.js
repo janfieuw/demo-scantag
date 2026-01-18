@@ -60,10 +60,8 @@ function layoutDemo(title, leftHtml) {
         ${leftHtml}
       </div>
 
-      <img
-  src="src/static/logo_punctoo_groot_opgeel.png"
-  alt=""
-  class="demo-logo-fixed"
+    <img src="/static/logo_punctoo_groot_opgeel.png" class="demo-logo-fixed" alt="">
+
 />
 
     </aside>

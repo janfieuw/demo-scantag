@@ -24,7 +24,7 @@ function renderAccount({ error = "", email = "" } = {}) {
     "DEMO — ACCOUNT",
     `
       <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
-      <h2 class="demo-title">ACCOUNT.</h2>
+      <div class="demo-title">ACCOUNT.</div>
       <p class="demo-lead">Maak eerst een account aan.
 <br>Kies een e-mailadres als login en een paswoord</p>
       ${errorHtml}

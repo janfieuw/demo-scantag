@@ -7,7 +7,9 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
-/* Standaard layout (admin / rapporten) */
+/* =========================
+   STANDAARD LAYOUT
+   ========================= */
 function layout(title, bodyHtml) {
   return `<!doctype html>
 <html lang="nl">
@@ -15,6 +17,12 @@ function layout(title, bodyHtml) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
+
+  <!-- JetBrains Mono (Google Fonts) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="/static/base.css" />
 </head>
 <body>
@@ -23,7 +31,9 @@ function layout(title, bodyHtml) {
 </html>`;
 }
 
-/* DEMO / WIZARD layout */
+/* =========================
+   DEMO / WIZARD LAYOUT
+   ========================= */
 function layoutDemo(title, leftHtml) {
   return `<!doctype html>
 <html lang="nl">
@@ -32,13 +42,18 @@ function layoutDemo(title, leftHtml) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(title)}</title>
 
+  <!-- JetBrains Mono (Google Fonts) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="/static/base.css" />
   <link rel="stylesheet" href="/static/demo.css" />
 </head>
 <body class="demo-body">
   <div class="demo-shell">
 
-    <!-- LINKER KANT -->
+    <!-- LINKER KOLOM -->
     <aside class="demo-left">
       <div class="demo-left-inner">
         ${leftHtml}
@@ -49,7 +64,7 @@ function layoutDemo(title, leftHtml) {
       </div>
     </aside>
 
-    <!-- RECHTER KANT -->
+    <!-- RECHTER ZIJDE -->
     <section class="demo-right" aria-hidden="true">
       <img
         src="/static/demo-lady.png"

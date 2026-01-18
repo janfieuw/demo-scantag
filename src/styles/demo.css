@@ -154,7 +154,7 @@
 }
 
 .demo-logo-fixed {
-  width: 180px;   /* ← HIER WIJZIG JE HET FORMAAT */
+  width: 300px;   /* ← HIER WIJZIG JE HET FORMAAT */
   height: auto;   /* behoudt verhoudingen */
   position: fixed;
   left: var(--logo-offset-left);

@@ -50,11 +50,7 @@ function renderAccount({ error = "", email = "" } = {}) {
         </div>
       </form>
 
-      <div class="demo-footer">
-        
-        <div class="demo-sub">PUNCTOO Demo</div>
-        <div class="demo-sub">ScanTag + referentietijd (rooster/kalender)</div>
-      </div>
+     
     `
   );
 }

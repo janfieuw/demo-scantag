@@ -126,7 +126,9 @@
 .demo-spacer {
   display: none;
 }
-
+.demo-lead {
+  max-width: 520px; /* bv. 480–560 testen */
+}
 /* Acties (knoppen) over volledige breedte, netjes uitgelijnd */
 .demo-actions {
   grid-column: 1 / -1;

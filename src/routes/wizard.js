@@ -140,7 +140,7 @@ router.get("/wizard/company", async (req, res) => {
             <a class="demo-btn primary" href="/wizard/employees">VOLGENDE</a>
 
             <form method="POST" action="/wizard/reset" style="margin:0;">
-              <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
+              <button class="demo-btn secondary" type="submit">RESET</button>
             </form>
           </div>
 
@@ -174,7 +174,7 @@ router.get("/wizard/company", async (req, res) => {
 
         <div class="demo-actions" style="margin-top:12px;">
           <form method="POST" action="/wizard/reset" style="margin:0;">
-            <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
+            <button class="demo-btn secondary" type="submit">RESET</button>
           </form>
         </div>
 
@@ -281,7 +281,7 @@ router.get("/wizard/employees", async (req, res) => {
           <a class="demo-btn ghost" href="/wizard/company">TERUG</a>
           ${nextBtn}
           <form method="POST" action="/wizard/reset" style="margin:0;">
-            <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
+            <button class="demo-btn secondary" type="submit">RESET</button>
           </form>
         </div>
 
@@ -422,7 +422,7 @@ router.get("/wizard/reference", async (req, res) => {
           <a class="demo-btn ghost" href="/wizard/employees">TERUG</a>
           ${nextBtn}
           <form method="POST" action="/wizard/reset" style="margin:0;">
-            <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
+            <button class="demo-btn secondary" type="submit">RESET</button>
           </form>
         </div>
 

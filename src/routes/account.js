@@ -18,15 +18,16 @@ function renderAccount({ error = "", email = "" } = {}) {
     ? `<div class="demo-alert" role="alert">${escapeHtml(error)}</div>`
     : "";
 
-  // BELANGRIJK: géén extra demo-left wrapper hier.
-  // layoutDemo() levert de kolommen; wij leveren enkel de inhoud.
   return renderWithDemoLayout(
     "DEMO — ACCOUNT",
     `
       <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
       <div class="demo-title">ACCOUNT.</div>
-      <p class="demo-lead">Maak eerst een account aan.
-<br>Kies een e-mailadres als login en een paswoord</p>
+
+      <p class="demo-lead">
+        Maak eerst een account aan. Kies een e-mailadres als login en een paswoord.
+      </p>
+
       ${errorHtml}
 
       <form class="demo-form" method="POST" action="/demo/account">
@@ -50,8 +51,6 @@ function renderAccount({ error = "", email = "" } = {}) {
           <button class="demo-btn primary" type="submit">VOLGENDE</button>
         </div>
       </form>
-
-     
     `
   );
 }
@@ -81,12 +80,11 @@ router.post("/demo/account", async (req, res) => {
     );
   }
 
-  // Demo: geen echte auth, enkel gating-cookie
   res.cookie("demo_account", "1", {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 1000 * 60 * 60 * 12, // 12u
+    maxAge: 1000 * 60 * 60 * 12,
   });
 
   return res.redirect("/wizard/company");

@@ -13,10 +13,8 @@ const TZ = "Europe/Brussels";
 // GATE: account vóór wizard
 // --------------------------
 router.use((req, res, next) => {
-  // Sta reset altijd toe (handig om demo te herstellen)
   if (req.path === "/wizard/reset") return next();
 
-  // Wizard alleen toegankelijk na demo-account
   const hasDemo = req.cookies && req.cookies.demo_account === "1";
   if (!hasDemo) return res.redirect("/demo/account");
 
@@ -58,7 +56,6 @@ async function getScantag(companyId) {
 }
 
 function weekdayLabel(dow) {
-  // Luxon: 1=Monday ... 7=Sunday
   return (
     {
       1: "ma",
@@ -73,7 +70,7 @@ function weekdayLabel(dow) {
 }
 
 function generateScanCode() {
-  return crypto.randomBytes(7).toString("base64url"); // ~10 chars
+  return crypto.randomBytes(7).toString("base64url");
 }
 
 async function generateUniqueScanCode(companyId) {
@@ -100,7 +97,6 @@ router.post("/wizard/reset", async (req, res) => {
   await run(`DELETE FROM employees`);
   await run(`DELETE FROM companies`);
 
-  // demo cookie mag blijven bestaan; gebruiker wil alleen opnieuw starten
   res.redirect("/wizard/company");
 });
 
@@ -112,14 +108,12 @@ router.post("/wizard/employees/unbind", async (req, res) => {
   const employeeId = Number(req.body.employee_id);
   if (!employeeId) return res.redirect("/wizard/employees");
 
-  // Safety: werknemer moet tot dit bedrijf behoren
   const emp = await get(
     `SELECT id FROM employees WHERE id = $1 AND company_id = $2 LIMIT 1`,
     [employeeId, company.id]
   );
   if (!emp) return res.redirect("/wizard/employees");
 
-  // Loskoppelen = device binding verwijderen
   await run(`DELETE FROM device_bindings WHERE employee_id = $1`, [employeeId]);
 
   return res.redirect("/wizard/employees");
@@ -144,8 +138,9 @@ router.get("/wizard/company", async (req, res) => {
 
           <div class="demo-actions">
             <a class="demo-btn primary" href="/wizard/employees">VOLGENDE</a>
+
             <form method="POST" action="/wizard/reset" style="margin:0;">
-              <button class="demo-btn ghost" type="submit">Opnieuw beginnen</button>
+              <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
             </form>
           </div>
 
@@ -159,6 +154,7 @@ router.get("/wizard/company", async (req, res) => {
     );
   }
 
+  // GEEN form-in-form: reset-form staat NA het hoofd-formulier
   return res.send(
     layoutDemo(
       "DEMO — STAP 1",
@@ -173,11 +169,14 @@ router.get("/wizard/company", async (req, res) => {
 
           <div class="demo-actions">
             <button class="demo-btn primary" type="submit">VOLGENDE</button>
-            <form method="POST" action="/wizard/reset" style="margin:0;">
-              <button class="demo-btn ghost" type="submit">Opnieuw beginnen</button>
-            </form>
           </div>
         </form>
+
+        <div class="demo-actions" style="margin-top:12px;">
+          <form method="POST" action="/wizard/reset" style="margin:0;">
+            <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
+          </form>
+        </div>
 
         <div class="demo-footer">
           <div class="demo-brand">PUNCTOO</div>
@@ -201,10 +200,10 @@ router.post("/wizard/company", async (req, res) => {
     [name]
   );
 
-  await run(
-    `INSERT INTO scantags (company_id, name) VALUES ($1,$2)`,
-    [inserted.id, "ScanTag"]
-  );
+  await run(`INSERT INTO scantags (company_id, name) VALUES ($1,$2)`, [
+    inserted.id,
+    "ScanTag",
+  ]);
 
   return res.redirect("/wizard/company");
 });
@@ -252,7 +251,7 @@ router.get("/wizard/employees", async (req, res) => {
   const nextBtn =
     employees.length === 2
       ? `<a class="demo-btn primary" href="/wizard/reference">VOLGENDE</a>`
-      : `<button class="demo-btn primary" type="button" disabled style="opacity:.5; cursor:not-allowed;">VOLGENDE</button>`;
+      : `<button class="demo-btn primary" type="button" disabled>VOLGENDE</button>`;
 
   return res.send(
     layoutDemo(
@@ -282,7 +281,7 @@ router.get("/wizard/employees", async (req, res) => {
           <a class="demo-btn ghost" href="/wizard/company">TERUG</a>
           ${nextBtn}
           <form method="POST" action="/wizard/reset" style="margin:0;">
-            <button class="demo-btn ghost" type="submit">Opnieuw beginnen</button>
+            <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
           </form>
         </div>
 
@@ -321,10 +320,9 @@ router.post("/wizard/employees/add", async (req, res) => {
 // STEP 3 — Referentietijd (ROOSTER/KALENDER)
 // --------------------------
 async function isEmployeeReferenceOk(employeeId) {
-  const modeRow = await get(
-    `SELECT reference_mode FROM employees WHERE id=$1`,
-    [employeeId]
-  );
+  const modeRow = await get(`SELECT reference_mode FROM employees WHERE id=$1`, [
+    employeeId,
+  ]);
   const mode = modeRow?.reference_mode || null;
 
   if (mode === "ROOSTER") {
@@ -397,7 +395,7 @@ router.get("/wizard/reference", async (req, res) => {
 
   const nextBtn = allOk
     ? `<a class="demo-btn primary" href="/wizard/qrs">VOLGENDE</a>`
-    : `<button class="demo-btn primary" type="button" disabled style="opacity:.5; cursor:not-allowed;">VOLGENDE</button>`;
+    : `<button class="demo-btn primary" type="button" disabled>VOLGENDE</button>`;
 
   return res.send(
     layoutDemo(
@@ -424,7 +422,7 @@ router.get("/wizard/reference", async (req, res) => {
           <a class="demo-btn ghost" href="/wizard/employees">TERUG</a>
           ${nextBtn}
           <form method="POST" action="/wizard/reset" style="margin:0;">
-            <button class="demo-btn ghost" type="submit">Opnieuw beginnen</button>
+            <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
           </form>
         </div>
 
@@ -452,7 +450,10 @@ router.post("/wizard/reference/open", async (req, res) => {
   const emp = await getEmployee(company.id, employeeId);
   if (!emp) return res.redirect("/wizard/reference");
 
-  await run(`UPDATE employees SET reference_mode=$1 WHERE id=$2`, [mode, employeeId]);
+  await run(`UPDATE employees SET reference_mode=$1 WHERE id=$2`, [
+    mode,
+    employeeId,
+  ]);
 
   if (mode === "ROOSTER") {
     return res.redirect(`/wizard/reference/rooster?employeeId=${employeeId}`);
@@ -478,7 +479,9 @@ router.get("/wizard/reference/rooster", async (req, res) => {
      ORDER BY weekday ASC`,
     [employeeId]
   );
-  const map = new Map(existing.map((r) => [Number(r.weekday), Number(r.expected_minutes)]));
+  const map = new Map(
+    existing.map((r) => [Number(r.weekday), Number(r.expected_minutes)])
+  );
 
   const rows = [1, 2, 3, 4, 5, 6, 7]
     .map((dow) => {
@@ -531,10 +534,13 @@ router.post("/wizard/reference/rooster/save", async (req, res) => {
   const emp = await getEmployee(company.id, employeeId);
   if (!emp) return res.redirect("/wizard/reference");
 
-  await run(`UPDATE employees SET reference_mode='ROOSTER' WHERE id=$1`, [employeeId]);
+  await run(`UPDATE employees SET reference_mode='ROOSTER' WHERE id=$1`, [
+    employeeId,
+  ]);
 
-  // Bij rooster mogen we volledig herschrijven (geen lock-per-weekday nodig)
-  await run(`DELETE FROM employee_reference_pattern WHERE employee_id=$1`, [employeeId]);
+  await run(`DELETE FROM employee_reference_pattern WHERE employee_id=$1`, [
+    employeeId,
+  ]);
 
   for (const dow of [1, 2, 3, 4, 5, 6, 7]) {
     const raw = req.body[`m_${dow}`];
@@ -566,12 +572,12 @@ async function getLockedCalendarDays(employeeId) {
     [employeeId]
   );
 
-  // Normaliseer naar yyyy-mm-dd
   const lockedSet = new Set(
     locked.map((r) => {
-      const d = r.day instanceof Date
-        ? DateTime.fromJSDate(r.day, { zone: TZ }).toISODate()
-        : String(r.day).slice(0, 10);
+      const d =
+        r.day instanceof Date
+          ? DateTime.fromJSDate(r.day, { zone: TZ }).toISODate()
+          : String(r.day).slice(0, 10);
       return d;
     })
   );
@@ -599,17 +605,16 @@ router.get("/wizard/reference/kalender", async (req, res) => {
     [employeeId]
   );
 
-  // PG kan DATE als Date-object teruggeven. Normaliseer naar yyyy-mm-dd.
   const existingMap = new Map(
     existing.map((r) => {
-      const d = r.day instanceof Date
-        ? DateTime.fromJSDate(r.day, { zone: TZ }).toISODate()
-        : String(r.day).slice(0, 10);
+      const d =
+        r.day instanceof Date
+          ? DateTime.fromJSDate(r.day, { zone: TZ }).toISODate()
+          : String(r.day).slice(0, 10);
       return [d, Number(r.expected_minutes)];
     })
   );
 
-  // Demo: volgende 15 dagen (zoals jouw mock)
   const today = DateTime.now().setZone(TZ).startOf("day");
   const days = [];
   for (let i = 0; i < 15; i++) {
@@ -699,10 +704,10 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
   const emp = await getEmployee(company.id, employeeId);
   if (!emp) return res.redirect("/wizard/reference");
 
-  await run(`UPDATE employees SET reference_mode='KALENDER' WHERE id=$1`, [employeeId]);
+  await run(`UPDATE employees SET reference_mode='KALENDER' WHERE id=$1`, [
+    employeeId,
+  ]);
 
-  // LOCK regel: dagen met IN-scan mogen niet gewijzigd of verwijderd worden.
-  // 1) verwijder enkel niet-locked dagen (safe cleanup)
   await run(
     `
     DELETE FROM employee_reference_calendar
@@ -718,13 +723,12 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
 
   const lockedSet = await getLockedCalendarDays(employeeId);
 
-  // 2) upsert enkel niet-locked dagen uit de form
   for (const [key, value] of Object.entries(req.body || {})) {
     if (!key.startsWith("m_")) continue;
 
     const day = key.slice(2);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
-    if (lockedSet.has(day)) continue; // server-side lock
+    if (lockedSet.has(day)) continue;
 
     const minutes = Number(value);
     if (!Number.isFinite(minutes) || minutes <= 0) continue;
@@ -738,7 +742,6 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
     );
   }
 
-  // 3) Optioneel extra dag
   const extraDay = String(req.body.extra_day || "").slice(0, 10);
   const extraMinutes = Number(req.body.extra_minutes);
 
@@ -771,7 +774,6 @@ router.get("/wizard/qrs", async (req, res) => {
   const employees = await getEmployees(company.id);
   if (employees.length < 2) return res.redirect("/wizard/employees");
 
-  // Gate: referentietijd moet voor iedereen ingevuld zijn
   for (const e of employees) {
     const ok = await isEmployeeReferenceOk(e.id);
     if (!ok) return res.redirect("/wizard/reference");
@@ -779,10 +781,10 @@ router.get("/wizard/qrs", async (req, res) => {
 
   const tag = await getScantag(company.id);
   if (!tag) {
-    await run(
-      `INSERT INTO scantags (company_id, name) VALUES ($1,$2)`,
-      [company.id, "ScanTag"]
-    );
+    await run(`INSERT INTO scantags (company_id, name) VALUES ($1,$2)`, [
+      company.id,
+      "ScanTag",
+    ]);
   }
 
   return res.redirect("/tags");

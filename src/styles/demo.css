@@ -23,31 +23,28 @@
   padding: 32px 28px;
   min-height: 100vh;
 
-  /* Belangrijk: layout-flow zodat logo niet overlapt */
+  /* layout-flow zodat logo niet overlapt */
   display: flex;
   flex-direction: column;
 }
 
 .demo-left-content {
-  /* duwt footer-logo naar onder */
   flex: 1;
 }
 
-/* (was demo-left-inner) — behouden als je dit nog gebruikt */
+/* (optioneel) */
 .demo-left-inner {
   max-width: 360px;
 }
 
-/* Nieuwe footer voor het logo (in flow) */
 .demo-left-footer {
   padding-top: 18px;
   padding-bottom: 6px;
 }
 
-/* Logo zelf: NIET fixed, NIET absolute */
 .demo-logo {
   display: block;
-  width: 300px;     /* ← hier pas je grootte aan */
+  width: 300px;
   max-width: 100%;
   height: auto;
   pointer-events: none;
@@ -60,15 +57,12 @@
 .demo-right {
   position: relative;
   overflow: hidden;
-
-  /* Muurbeeld vult alles */
   background-image: url("/static/demo-wall.jpg");
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
 }
 
-/* subtiele lichte sluier (optioneel, kan je schrappen) */
 .demo-right::before {
   content: "";
   position: absolute;
@@ -77,13 +71,12 @@
   pointer-events: none;
 }
 
-/* Dame rechtsonder */
 .demo-right-lady {
   position: absolute;
-  right: 100px;      /* bewust iets buiten kader */
+  right: 100px;
   bottom: -1px;
 
-  height: 92vh;      /* groot, hero-gevoel */
+  height: 92vh;
   max-height: 980px;
   width: auto;
 
@@ -112,52 +105,17 @@
   }
 }
 
-/* Formulier netjes in rooster */
-.demo-form {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  column-gap: 16px;
-  row-gap: 12px;
-  align-items: center;
-}
+/* =========================
+   TYPO
+   ========================= */
 
-/* Labels rechts uitlijnen voor strak grid */
-.demo-label {
-  margin: 0;
-  justify-self: end;
-}
-
-/* Inputs vullen kolom 2 */
-.demo-input {
-  width: 100%;
-  max-width: 320px; /* pas aan naar smaak */
-}
-
-/* Spacers zijn niet meer nodig in grid */
-.demo-spacer {
-  display: none;
-}
-
-.demo-lead {
-  max-width: 520px; /* bv. 480–560 testen */
-}
-
-/* Acties (knoppen) over volledige breedte, netjes uitgelijnd */
-.demo-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 12px;
-  margin-top: 6px;
-}
-
-/* Kleine contextregel boven titel */
 .demo-kicker {
   font-size: 45px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   opacity: 1;
   margin-bottom: 12px;
-  font-weight: 700; /* bold */
+  font-weight: 700;
   color: #ffffff;
 }
 
@@ -167,12 +125,205 @@
   text-transform: uppercase;
   opacity: 1;
   margin-bottom: 12px;
-  font-weight: 700; /* bold */
+  font-weight: 700;
   color: #140d01;
 }
 
+.demo-lead {
+  max-width: 520px;
+}
+
+/* simpele helpers (als ze nog niet bestaan in base.css) */
+.demo-muted {
+  opacity: 0.85;
+}
+
+.demo-footer {
+  margin-top: 14px;
+  line-height: 1.4;
+}
+
+.demo-brand {
+  font-weight: 700;
+}
+
+.demo-sub {
+  opacity: 0.85;
+  font-size: 13px;
+}
+
 /* =========================
-   OUDE FIXED LOGO-STYLING UITGESCHAKELD
+   FORM LAYOUT
    ========================= */
 
-/* Verwijderd: :root offsets + .demo-logo-fixed { position: fixed; ... } */
+.demo-form {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  column-gap: 16px;
+  row-gap: 12px;
+  align-items: center;
+}
+
+.demo-label {
+  margin: 0;
+  justify-self: end;
+}
+
+.demo-input {
+  width: 100%;
+  max-width: 320px;
+}
+
+.demo-spacer {
+  display: none;
+}
+
+/* =========================
+   TABLE (als je demo-table gebruikt)
+   ========================= */
+
+.demo-tablewrap {
+  overflow-x: auto;
+}
+
+.demo-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.demo-table th,
+.demo-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid rgba(0,0,0,.15);
+  text-align: left;
+}
+
+.demo-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.demo-badge.ok {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.demo-badge.warn {
+  background: rgba(0, 0, 0, 0.10);
+}
+
+/* selects */
+.demo-select {
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,.25);
+  padding: 0 10px;
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* rijen */
+.demo-row {
+  display: flex;
+  gap: 12px;
+}
+
+/* alerts */
+.demo-alert {
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0,0,0,.10);
+}
+
+/* =========================
+   BUTTON SYSTEM — 1 STYLE OVERAL
+   ========================= */
+
+/* Container waar knoppen naast elkaar staan */
+.demo-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* Basis knop: werkt voor <a> en <button> */
+.demo-btn {
+  appearance: none;
+  border: none;
+  border-radius: 8px;
+
+  padding: 10px 18px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  text-decoration: none; /* voor <a> */
+  line-height: 1;
+
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.05s ease;
+}
+
+.demo-btn:active {
+  transform: translateY(1px);
+}
+
+/* Primary = zwart */
+.demo-btn.primary {
+  background: #000;
+  color: #fff;
+}
+
+.demo-btn.primary:hover {
+  background: #1a1a1a;
+}
+
+/* Secondary = donker(der) geel */
+.demo-btn.secondary {
+  background: #d4a900;
+  color: #000;
+}
+
+.demo-btn.secondary:hover {
+  background: #c29a00;
+}
+
+/* Ghost = tekstknop (TERUG) */
+.demo-btn.ghost {
+  background: transparent;
+  color: #000;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.demo-btn.ghost:hover {
+  text-decoration: underline;
+}
+
+/* Disabled (voor <button disabled>) */
+.demo-btn:disabled,
+.demo-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none;
+}
+
+/* Disabled look voor <a> indien ooit nodig */
+.demo-btn.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}

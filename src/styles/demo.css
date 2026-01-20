@@ -32,7 +32,6 @@
   flex: 1;
 }
 
-/* (optioneel) */
 .demo-left-inner {
   max-width: 360px;
 }
@@ -178,16 +177,24 @@
   display: none;
 }
 
+/* ✅ CRUCIAAL: alles wat “breed” is, moet over beide kolommen */
+.demo-form .demo-tablewrap,
+.demo-form .demo-actions,
+.demo-form hr,
+.demo-form .demo-row {
+  grid-column: 1 / -1;
+}
+
 /* =========================
    TABLES
    ========================= */
 
-/* ✅ Default: GEEN horizontale scroll (voorkomt die foute scrollbar) */
+/* Default: GEEN horizontale scroll */
 .demo-tablewrap {
   overflow-x: hidden;
 }
 
-/* ✅ Alleen waar nodig: horizontale scroll */
+/* Alleen waar nodig: horizontale scroll */
 .demo-tablewrap.scroll-x {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -240,6 +247,7 @@
 .demo-row {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 /* alerts */
@@ -255,7 +263,6 @@
    ========================= */
 
 .demo-actions {
-  grid-column: 1 / -1;
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
@@ -291,7 +298,6 @@
   transform: translateY(1px);
 }
 
-/* Primary = zwart */
 .demo-btn.primary {
   background: #000;
   color: #fff;
@@ -301,7 +307,6 @@
   background: #1a1a1a;
 }
 
-/* Secondary = donker(der) geel */
 .demo-btn.secondary {
   background: #d4a900;
   color: #000;
@@ -311,7 +316,6 @@
   background: #c29a00;
 }
 
-/* Ghost = outline button (TERUG) */
 .demo-btn.ghost {
   background: transparent;
   color: #000;
@@ -322,7 +326,6 @@
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* Disabled */
 .demo-btn:disabled,
 .demo-btn[disabled] {
   opacity: 0.45;

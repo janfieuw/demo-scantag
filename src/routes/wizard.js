@@ -178,11 +178,7 @@ router.get("/wizard/company", async (req, res) => {
           </form>
         </div>
 
-        <div class="demo-footer">
-          <div class="demo-brand">PUNCTOO</div>
-          <div class="demo-sub">PUNCTOO Demo</div>
-          <div class="demo-sub">ScanTag + referentietijd (rooster/kalender)</div>
-        </div>
+      
       `
     )
   );

@@ -196,7 +196,7 @@
 .demo-table th,
 .demo-table td {
   padding: 10px 10px;
-  border-bottom: 1px solid rgba(0,0,0,.15);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
   text-align: left;
 }
 
@@ -220,7 +220,7 @@
 .demo-select {
   height: 36px;
   border-radius: 6px;
-  border: 1px solid rgba(0,0,0,.25);
+  border: 1px solid rgba(0, 0, 0, 0.25);
   padding: 0 10px;
   font-family: "JetBrains Mono", monospace;
 }
@@ -236,7 +236,7 @@
   margin: 10px 0 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: rgba(0,0,0,.10);
+  background: rgba(0, 0, 0, 0.10);
 }
 
 /* =========================
@@ -250,6 +250,7 @@
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 6px;
+  align-items: center;
 }
 
 /* Basis knop: werkt voor <a> en <button> */
@@ -274,7 +275,7 @@
   text-decoration: none; /* voor <a> */
   line-height: 1;
 
-  transition: background-color 0.15s ease, color 0.15s ease, transform 0.05s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
 }
 
 .demo-btn:active {
@@ -301,16 +302,15 @@
   background: #c29a00;
 }
 
-/* Ghost = tekstknop (TERUG) */
+/* ✅ Ghost = outline button (GEEN tekstlink meer) */
 .demo-btn.ghost {
   background: transparent;
   color: #000;
-  padding-left: 0;
-  padding-right: 0;
+  border: 2px solid #000;     /* dit maakt ‘TERUG’ een echte knop */
 }
 
 .demo-btn.ghost:hover {
-  text-decoration: underline;
+  background: rgba(0, 0, 0, 0.08);
 }
 
 /* Disabled (voor <button disabled>) */

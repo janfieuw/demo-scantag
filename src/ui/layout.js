@@ -23,7 +23,6 @@ function layout(title, bodyHtml) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-
   <link rel="stylesheet" href="/static/base.css" />
 </head>
 <body>
@@ -56,14 +55,18 @@ function layoutDemo(title, leftHtml) {
 
     <!-- LINKER KOLOM -->
     <aside class="demo-left">
-      <div class="demo-left-inner">
+      <div class="demo-left-content">
         ${leftHtml}
       </div>
 
-    <img src="/static/logo_punctoo_groot_opgeel.png" class="demo-logo-fixed" alt="">
-
-
-
+      <div class="demo-left-footer" aria-hidden="true">
+        <img
+          src="/static/logo_punctoo_groot_opgeel.png"
+          class="demo-logo"
+          alt=""
+          loading="eager"
+        />
+      </div>
     </aside>
 
     <!-- RECHTER ZIJDE -->

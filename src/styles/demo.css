@@ -21,26 +21,36 @@
 .demo-left {
   background: #fdc500;
   padding: 32px 28px;
-  position: relative;
+  min-height: 100vh;
+
+  /* Belangrijk: layout-flow zodat logo niet overlapt */
+  display: flex;
+  flex-direction: column;
 }
 
+.demo-left-content {
+  /* duwt footer-logo naar onder */
+  flex: 1;
+}
+
+/* (was demo-left-inner) — behouden als je dit nog gebruikt */
 .demo-left-inner {
   max-width: 360px;
 }
 
-/* Branding onderaan */
-.demo-brand {
-  position: absolute;
-  left: 28px;
-  bottom: 22px;
+/* Nieuwe footer voor het logo (in flow) */
+.demo-left-footer {
+  padding-top: 18px;
+  padding-bottom: 6px;
 }
 
+/* Logo zelf: NIET fixed, NIET absolute */
 .demo-logo {
-  background: rgba(255, 255, 255, 0.45);
-  padding: 10px 16px;
-  border-radius: 999px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
+  display: block;
+  width: 300px;     /* ← hier pas je grootte aan */
+  max-width: 100%;
+  height: auto;
+  pointer-events: none;
 }
 
 /* =========================
@@ -101,6 +111,7 @@
     min-height: 100vh;
   }
 }
+
 /* Formulier netjes in rooster */
 .demo-form {
   display: grid;
@@ -126,9 +137,11 @@
 .demo-spacer {
   display: none;
 }
+
 .demo-lead {
   max-width: 520px; /* bv. 480–560 testen */
 }
+
 /* Acties (knoppen) over volledige breedte, netjes uitgelijnd */
 .demo-actions {
   grid-column: 1 / -1;
@@ -136,6 +149,7 @@
   gap: 12px;
   margin-top: 6px;
 }
+
 /* Kleine contextregel boven titel */
 .demo-kicker {
   font-size: 45px;
@@ -146,6 +160,7 @@
   font-weight: 700; /* bold */
   color: #ffffff;
 }
+
 .demo-title {
   font-size: 45px;
   letter-spacing: 0.08em;
@@ -154,25 +169,10 @@
   margin-bottom: 12px;
   font-weight: 700; /* bold */
   color: #140d01;
-  }
+}
+
 /* =========================
-   LOGO LINKSONDER
+   OUDE FIXED LOGO-STYLING UITGESCHAKELD
    ========================= */
 
-:root {
-  --logo-offset-left: 24px;   /* ← HIER AANPASSEN */
-  --logo-offset-bottom: 24px; /* ← HIER AANPASSEN */
-}
-
-.demo-logo-fixed {
-  width: 300px;   /* ← HIER WIJZIG JE HET FORMAAT */
-  height: auto;   /* behoudt verhoudingen */
-  position: fixed;
-  left: var(--logo-offset-left);
-  bottom: var(--logo-offset-bottom);
-
- 
-
-  z-index: 10;
-  pointer-events: none; /* logo is decoratief */
-}
+/* Verwijderd: :root offsets + .demo-logo-fixed { position: fixed; ... } */

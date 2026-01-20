@@ -6,12 +6,11 @@ const { layoutDemo, escapeHtml } = require("../ui/layout");
 
 const router = express.Router();
 
-// Wizard en referentietijd werken in Belgische tijd
 const TZ = "Europe/Brussels";
 
-// --------------------------
-// GATE: account vóór wizard
-// --------------------------
+/* --------------------------
+   GATE: account vóór wizard
+-------------------------- */
 router.use((req, res, next) => {
   if (req.path === "/wizard/reset") return next();
 
@@ -21,9 +20,9 @@ router.use((req, res, next) => {
   return next();
 });
 
-// --------------------------
-// Helpers
-// --------------------------
+/* --------------------------
+   Helpers
+-------------------------- */
 async function getCompany() {
   return await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
 }
@@ -85,9 +84,9 @@ async function generateUniqueScanCode(companyId) {
   throw new Error("Failed to generate unique scan code");
 }
 
-// --------------------------
-// Reset: alles leeg
-// --------------------------
+/* --------------------------
+   Reset
+-------------------------- */
 router.post("/wizard/reset", async (req, res) => {
   await run(`DELETE FROM scan_events`);
   await run(`DELETE FROM device_bindings`);
@@ -100,7 +99,7 @@ router.post("/wizard/reset", async (req, res) => {
   res.redirect("/wizard/company");
 });
 
-// Smartphone loskoppelen (binding verwijderen) voor 1 werknemer
+/* Smartphone loskoppelen */
 router.post("/wizard/employees/unbind", async (req, res) => {
   const company = await getCompany();
   if (!company) return res.redirect("/wizard/company");
@@ -119,9 +118,9 @@ router.post("/wizard/employees/unbind", async (req, res) => {
   return res.redirect("/wizard/employees");
 });
 
-// --------------------------
-// STEP 1 — Onderneming
-// --------------------------
+/* --------------------------
+   STEP 1 — Company
+-------------------------- */
 router.get("/wizard/company", async (req, res) => {
   const company = await getCompany();
 
@@ -140,17 +139,20 @@ router.get("/wizard/company", async (req, res) => {
             <a class="demo-btn primary" href="/wizard/employees">VOLGENDE</a>
 
             <form method="POST" action="/wizard/reset" style="margin:0;">
-              <button class="demo-btn secondary" type="submit">RESET</button>
+              <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
             </form>
           </div>
 
-          
+          <div class="demo-footer">
+            <div class="demo-brand">PUNCTOO</div>
+            <div class="demo-sub">PUNCTOO Demo</div>
+            <div class="demo-sub">ScanTag + referentietijd (rooster/kalender)</div>
+          </div>
         `
       )
     );
   }
 
-  // GEEN form-in-form: reset-form staat NA het hoofd-formulier
   return res.send(
     layoutDemo(
       "DEMO — STAP 1",
@@ -170,11 +172,15 @@ router.get("/wizard/company", async (req, res) => {
 
         <div class="demo-actions" style="margin-top:12px;">
           <form method="POST" action="/wizard/reset" style="margin:0;">
-            <button class="demo-btn secondary" type="submit">RESET</button>
+            <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
           </form>
         </div>
 
-      
+        <div class="demo-footer">
+          <div class="demo-brand">PUNCTOO</div>
+          <div class="demo-sub">PUNCTOO Demo</div>
+          <div class="demo-sub">ScanTag + referentietijd (rooster/kalender)</div>
+        </div>
       `
     )
   );
@@ -200,9 +206,9 @@ router.post("/wizard/company", async (req, res) => {
   return res.redirect("/wizard/company");
 });
 
-// --------------------------
-// STEP 2 — Werknemers + activatiecode
-// --------------------------
+/* --------------------------
+   STEP 2 — Employees
+-------------------------- */
 router.get("/wizard/employees", async (req, res) => {
   const company = await getCompany();
   if (!company) return res.redirect("/wizard/company");
@@ -258,7 +264,8 @@ router.get("/wizard/employees", async (req, res) => {
 
         <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
 
-        <div class="demo-tablewrap">
+        <!-- ✅ hier WEL scroll-x: tabel kan breed worden -->
+        <div class="demo-tablewrap scroll-x">
           <table class="demo-table">
             <thead>
               <tr><th>#</th><th>Werknemer</th><th>Activatiecode</th><th>Actie</th></tr>
@@ -273,11 +280,15 @@ router.get("/wizard/employees", async (req, res) => {
           <a class="demo-btn ghost" href="/wizard/company">TERUG</a>
           ${nextBtn}
           <form method="POST" action="/wizard/reset" style="margin:0;">
-            <button class="demo-btn secondary" type="submit">RESET</button>
+            <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
           </form>
         </div>
 
-      
+        <div class="demo-footer">
+          <div class="demo-brand">PUNCTOO</div>
+          <div class="demo-sub">PUNCTOO Demo</div>
+          <div class="demo-sub">ScanTag + referentietijd (rooster/kalender)</div>
+        </div>
       `
     )
   );
@@ -304,9 +315,9 @@ router.post("/wizard/employees/add", async (req, res) => {
   return res.redirect("/wizard/employees");
 });
 
-// --------------------------
-// STEP 3 — Referentietijd (ROOSTER/KALENDER)
-// --------------------------
+/* --------------------------
+   STEP 3 — Reference
+-------------------------- */
 async function isEmployeeReferenceOk(employeeId) {
   const modeRow = await get(`SELECT reference_mode FROM employees WHERE id=$1`, [
     employeeId,
@@ -399,7 +410,8 @@ router.get("/wizard/reference", async (req, res) => {
 
         <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
 
-        <div class="demo-tablewrap">
+        <!-- ✅ overzicht kan breed worden: scroll-x -->
+        <div class="demo-tablewrap scroll-x">
           <table class="demo-table">
             <thead><tr><th>#</th><th>Werknemer</th><th>Instelling</th><th>Status</th></tr></thead>
             <tbody>${rows}</tbody>
@@ -410,11 +422,15 @@ router.get("/wizard/reference", async (req, res) => {
           <a class="demo-btn ghost" href="/wizard/employees">TERUG</a>
           ${nextBtn}
           <form method="POST" action="/wizard/reset" style="margin:0;">
-            <button class="demo-btn secondary" type="submit">RESET</button>
+            <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
           </form>
         </div>
 
-      
+        <div class="demo-footer">
+          <div class="demo-brand">PUNCTOO</div>
+          <div class="demo-sub">PUNCTOO Demo</div>
+          <div class="demo-sub">ScanTag + referentietijd (rooster/kalender)</div>
+        </div>
       `
     )
   );
@@ -445,7 +461,7 @@ router.post("/wizard/reference/open", async (req, res) => {
   return res.redirect(`/wizard/reference/kalender?employeeId=${employeeId}`);
 });
 
-// --------- ROOSTER ---------
+/* --------- ROOSTER --------- */
 router.get("/wizard/reference/rooster", async (req, res) => {
   const company = await getCompany();
   if (!company) return res.redirect("/wizard/company");
@@ -473,7 +489,9 @@ router.get("/wizard/reference/rooster", async (req, res) => {
       return `
         <tr>
           <td><b>${weekdayLabel(dow)}</b></td>
-          <td><input class="demo-input" style="max-width:160px;" type="number" min="0" name="m_${dow}" placeholder="min" value="${escapeHtml(val)}" /></td>
+          <td>
+            <input class="demo-input" style="max-width:160px;" type="number" min="0" name="m_${dow}" placeholder="min" value="${escapeHtml(val)}" />
+          </td>
         </tr>
       `;
     })
@@ -491,6 +509,7 @@ router.get("/wizard/reference/rooster", async (req, res) => {
         <form class="demo-form" method="POST" action="/wizard/reference/rooster/save">
           <input type="hidden" name="employee_id" value="${employeeId}" />
 
+          <!-- ✅ hier GEEN scroll-x: voorkomt foute scrollbar -->
           <div class="demo-tablewrap">
             <table class="demo-table">
               <thead><tr><th>Dag</th><th>Referentietijd (min)</th></tr></thead>
@@ -545,7 +564,7 @@ router.post("/wizard/reference/rooster/save", async (req, res) => {
   return res.redirect("/wizard/reference");
 });
 
-// --------- KALENDER ---------
+/* --------- KALENDER --------- */
 async function getLockedCalendarDays(employeeId) {
   const locked = await all(
     `SELECT DISTINCT (timestamp AT TIME ZONE 'Europe/Brussels')::date AS day
@@ -647,6 +666,7 @@ router.get("/wizard/reference/kalender", async (req, res) => {
         <form class="demo-form" method="POST" action="/wizard/reference/kalender/save">
           <input type="hidden" name="employee_id" value="${employeeId}" />
 
+          <!-- ✅ hier ook GEEN scroll-x -->
           <div class="demo-tablewrap">
             <table class="demo-table">
               <thead><tr><th>Dag</th><th>Referentietijd (min)</th></tr></thead>
@@ -748,9 +768,9 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
   return res.redirect("/wizard/reference");
 });
 
-// --------------------------
-// STEP 4 — QR / ScanTag
-// --------------------------
+/* --------------------------
+   STEP 4 — QR / ScanTag
+-------------------------- */
 router.get("/wizard/qrs", async (req, res) => {
   const company = await getCompany();
   if (!company) return res.redirect("/wizard/company");

@@ -133,7 +133,6 @@
   max-width: 520px;
 }
 
-/* simpele helpers (als ze nog niet bestaan in base.css) */
 .demo-muted {
   opacity: 0.85;
 }
@@ -172,6 +171,7 @@
 .demo-input {
   width: 100%;
   max-width: 320px;
+  box-sizing: border-box;
 }
 
 .demo-spacer {
@@ -179,18 +179,27 @@
 }
 
 /* =========================
-   TABLE (als je demo-table gebruikt)
+   TABLES
    ========================= */
 
+/* ✅ Default: GEEN horizontale scroll (voorkomt die foute scrollbar) */
 .demo-tablewrap {
+  overflow-x: hidden;
+}
+
+/* ✅ Alleen waar nodig: horizontale scroll */
+.demo-tablewrap.scroll-x {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .demo-table {
   width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
   margin-top: 8px;
   font-size: 13px;
+  table-layout: auto;
 }
 
 .demo-table th,
@@ -198,6 +207,7 @@
   padding: 10px 10px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.15);
   text-align: left;
+  white-space: normal;
 }
 
 .demo-badge {
@@ -223,6 +233,7 @@
   border: 1px solid rgba(0, 0, 0, 0.25);
   padding: 0 10px;
   font-family: "JetBrains Mono", monospace;
+  box-sizing: border-box;
 }
 
 /* rijen */
@@ -243,7 +254,6 @@
    BUTTON SYSTEM — 1 STYLE OVERAL
    ========================= */
 
-/* Container waar knoppen naast elkaar staan */
 .demo-actions {
   grid-column: 1 / -1;
   display: flex;
@@ -253,7 +263,6 @@
   align-items: center;
 }
 
-/* Basis knop: werkt voor <a> en <button> */
 .demo-btn {
   appearance: none;
   border: none;
@@ -272,7 +281,7 @@
   justify-content: center;
   gap: 8px;
 
-  text-decoration: none; /* voor <a> */
+  text-decoration: none;
   line-height: 1;
 
   transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
@@ -302,18 +311,18 @@
   background: #c29a00;
 }
 
-/* ✅ Ghost = outline button (GEEN tekstlink meer) */
+/* Ghost = outline button (TERUG) */
 .demo-btn.ghost {
   background: transparent;
   color: #000;
-  border: 2px solid #000;     /* dit maakt ‘TERUG’ een echte knop */
+  border: 2px solid #000;
 }
 
 .demo-btn.ghost:hover {
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* Disabled (voor <button disabled>) */
+/* Disabled */
 .demo-btn:disabled,
 .demo-btn[disabled] {
   opacity: 0.45;
@@ -322,7 +331,6 @@
   transform: none;
 }
 
-/* Disabled look voor <a> indien ooit nodig */
 .demo-btn.is-disabled {
   opacity: 0.45;
   pointer-events: none;

@@ -12,7 +12,6 @@ async function getCompany() {
 }
 
 async function getEmployees(companyId) {
-  // Sorteer alfabetisch op familienaam als beschikbaar, anders display_name
   return await all(
     `
     SELECT id, first_name, last_name, display_name, scan_code
@@ -54,6 +53,7 @@ router.get("/tags", async (req, res) => {
   const rows = employees
     .map((e, idx) => {
       const code = String(e.scan_code || "").trim();
+
       const inUrl = `${baseUrl}/scan/${encodeURIComponent(code)}/in`;
       const outUrl = `${baseUrl}/scan/${encodeURIComponent(code)}/out`;
 
@@ -89,7 +89,9 @@ router.get("/tags", async (req, res) => {
         <p class="demo-muted">
           Onderneming: <b>${escapeHtml(company.name)}</b><br>
           ScanTag: <b>${escapeHtml(tag?.name || "ScanTag")}</b><br>
-          Laatst bijgewerkt: <b>${escapeHtml(DateTime.now().setZone(TZ).toFormat("dd/LL/yyyy HH:mm"))}</b>
+          Laatst bijgewerkt: <b>${escapeHtml(
+            DateTime.now().setZone(TZ).toFormat("dd/LL/yyyy HH:mm")
+          )}</b>
         </p>
 
         <div class="demo-actions" style="margin-top:12px;">

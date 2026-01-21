@@ -7,8 +7,18 @@ const { layoutDemo, escapeHtml } = require("../ui/layout");
 const router = express.Router();
 const TZ = "Europe/Brussels";
 
-async function getCompany() {
-  return await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
+function getDemoSession(req) {
+  return String(req.cookies?.demo_session || "").trim();
+}
+
+async function getCompany(req) {
+  const sid = getDemoSession(req);
+  if (!sid) return null;
+
+  return await get(
+    `SELECT id, name FROM companies WHERE demo_session_id = $1 ORDER BY id LIMIT 1`,
+    [sid]
+  );
 }
 
 async function getEmployees(companyId) {
@@ -42,38 +52,41 @@ function employeeLabel(e) {
 }
 
 router.get("/tags", async (req, res) => {
-  const company = await getCompany();
-  if (!company) return res.redirect("/wizard/company");
+  const company = await getCompany(req);
+  if (!company) return res.redirect("/demo/account");
 
   const tag = await getScantag(company.id);
   const employees = await getEmployees(company.id);
 
   const baseUrl = `${req.protocol}://${req.get("host")}`;
 
-  const rows = employees
-    .map((e, idx) => {
-      const code = String(e.scan_code || "").trim();
+  const rows =
+    employees.length === 0
+      ? `<tr><td colspan="5">Geen werknemers gevonden. Ga terug naar stap 2.</td></tr>`
+      : employees
+          .map((e, idx) => {
+            const code = String(e.scan_code || "").trim();
 
-      const inUrl = `${baseUrl}/scan/${encodeURIComponent(code)}/in`;
-      const outUrl = `${baseUrl}/scan/${encodeURIComponent(code)}/out`;
+            const inUrl = `${baseUrl}/scan/${encodeURIComponent(code)}/in`;
+            const outUrl = `${baseUrl}/scan/${encodeURIComponent(code)}/out`;
 
-      return `
-        <tr>
-          <td>${idx + 1}</td>
-          <td><b>${escapeHtml(employeeLabel(e))}</b></td>
-          <td><code>${escapeHtml(code)}</code></td>
-          <td style="display:flex; gap:10px; flex-wrap:wrap;">
-            <a class="demo-btn primary" href="/scan/${encodeURIComponent(code)}/in">IN</a>
-            <a class="demo-btn ghost" href="/scan/${encodeURIComponent(code)}/out">OUT</a>
-          </td>
-          <td style="font-size:12px; opacity:.85;">
-            <div>IN: ${escapeHtml(inUrl)}</div>
-            <div>OUT: ${escapeHtml(outUrl)}</div>
-          </td>
-        </tr>
-      `;
-    })
-    .join("");
+            return `
+              <tr>
+                <td>${idx + 1}</td>
+                <td><b>${escapeHtml(employeeLabel(e))}</b></td>
+                <td><code>${escapeHtml(code)}</code></td>
+                <td style="display:flex; gap:10px; flex-wrap:wrap;">
+                  <a class="demo-btn primary" href="/scan/${encodeURIComponent(code)}/in">IN</a>
+                  <a class="demo-btn ghost" href="/scan/${encodeURIComponent(code)}/out">OUT</a>
+                </td>
+                <td style="font-size:12px; opacity:.85;">
+                  <div>IN: ${escapeHtml(inUrl)}</div>
+                  <div>OUT: ${escapeHtml(outUrl)}</div>
+                </td>
+              </tr>
+            `;
+          })
+          .join("");
 
   return res.send(
     layoutDemo(

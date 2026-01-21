@@ -6,11 +6,24 @@ const { layoutDemo, escapeHtml } = require("../ui/layout");
 const { buildReportRowsFromScanEvents } = require("../services/fallbacks");
 
 const router = express.Router();
-
 const TZ = "Europe/Brussels";
 
 function isISODate(s) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+}
+
+function getDemoSession(req) {
+  return String(req.cookies?.demo_session || "").trim();
+}
+
+async function getCompany(req) {
+  const sid = getDemoSession(req);
+  if (!sid) return null;
+
+  return await get(
+    `SELECT id, name FROM companies WHERE demo_session_id=$1 ORDER BY id LIMIT 1`,
+    [sid]
+  );
 }
 
 function formatEmployeeLabel(e) {
@@ -21,12 +34,7 @@ function formatEmployeeLabel(e) {
   return dn || `#${e?.id || "?"}`;
 }
 
-async function getCompany() {
-  return await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
-}
-
 async function listEmployees(companyId) {
-  // ✅ sorteer op familienaam → voornaam, fallback display_name
   return await all(
     `
     SELECT id, first_name, last_name, display_name
@@ -54,7 +62,6 @@ async function getEmployeesForReport(companyId, employeeId) {
       [companyId, employeeId]
     );
   }
-
   return await listEmployees(companyId);
 }
 
@@ -65,11 +72,11 @@ function toRangeUTC(fromISO, toISO) {
 }
 
 /* =========================
-   GET /reports  (formulier)
+   GET /reports
    ========================= */
 router.get("/reports", async (req, res) => {
-  const company = await getCompany();
-  if (!company) return res.redirect("/wizard/company");
+  const company = await getCompany(req);
+  if (!company) return res.redirect("/demo/account");
 
   const employees = await listEmployees(company.id);
 
@@ -98,6 +105,8 @@ router.get("/reports", async (req, res) => {
       <p class="demo-lead">
         Er is geen live data. Rapporten bestaan pas nadat je ze genereert.
       </p>
+
+      <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
 
       <form class="demo-form" method="POST" action="/reports/generate">
         <label class="demo-label" for="employee_id">Werknemer</label>
@@ -140,8 +149,8 @@ router.get("/reports", async (req, res) => {
    POST /reports/generate
    ========================= */
 router.post("/reports/generate", async (req, res) => {
-  const company = await getCompany();
-  if (!company) return res.redirect("/wizard/company");
+  const company = await getCompany(req);
+  if (!company) return res.redirect("/demo/account");
 
   const employeeIdRaw = String(req.body.employee_id || "").trim();
   const employeeId = employeeIdRaw ? Number(employeeIdRaw) : null;
@@ -157,12 +166,9 @@ router.post("/reports/generate", async (req, res) => {
   return res.redirect(`/reports/view/${reportId}`);
 });
 
-/* =========================
-   POST /reports/generate-last/:days
-   ========================= */
 router.post("/reports/generate-last/:days", async (req, res) => {
-  const company = await getCompany();
-  if (!company) return res.redirect("/wizard/company");
+  const company = await getCompany(req);
+  if (!company) return res.redirect("/demo/account");
 
   const days = Number(req.params.days);
   if (![7, 14, 21].includes(days)) return res.redirect("/reports");
@@ -174,9 +180,6 @@ router.post("/reports/generate-last/:days", async (req, res) => {
   return res.redirect(`/reports/view/${reportId}`);
 });
 
-/* =========================
-   Report generation
-   ========================= */
 async function generateReport({ companyId, employeeId, from, to }) {
   const report = await get(
     `
@@ -191,7 +194,6 @@ async function generateReport({ companyId, employeeId, from, to }) {
   const { fromTs, toTs } = toRangeUTC(from, to);
 
   for (const emp of employees) {
-    // ✅ jouw schema: scan_events."timestamp"
     const evs = await all(
       `
       SELECT employee_id, direction, "timestamp"
@@ -207,7 +209,7 @@ async function generateReport({ companyId, employeeId, from, to }) {
     const normalized = evs.map((r) => ({
       employee_id: r.employee_id,
       direction: r.direction,
-      timestamp: r.timestamp, // belangrijk: fallback-engine verwacht timestamp
+      timestamp: r.timestamp,
       source: "SCAN",
     }));
 
@@ -239,16 +241,18 @@ async function generateReport({ companyId, employeeId, from, to }) {
   return report.id;
 }
 
-/* =========================
-   GET /reports/view/:id
-   ========================= */
 router.get("/reports/view/:id", async (req, res) => {
+  const company = await getCompany(req);
+  if (!company) return res.redirect("/demo/account");
+
   const reportId = Number(req.params.id);
   if (!reportId) return res.redirect("/reports");
 
   const report = await get(`SELECT * FROM reports WHERE id=$1`, [reportId]);
   if (!report) return res.redirect("/reports");
 
+  // Extra veiligheid: report filter_employee_id kan alleen binnen company zijn,
+  // maar rows linken via employees anyway.
   const rows = await all(
     `
     SELECT
@@ -259,13 +263,14 @@ router.get("/reports/view/:id", async (req, res) => {
     FROM report_rows rr
     LEFT JOIN employees e ON e.id = rr.employee_id
     WHERE rr.report_id = $1
+      AND e.company_id = $2
     ORDER BY
       rr.day ASC,
       e.last_name ASC NULLS LAST,
       e.first_name ASC NULLS LAST,
       rr.start_ts ASC NULLS LAST
     `,
-    [reportId]
+    [reportId, company.id]
   );
 
   const rowsHtml =
@@ -307,6 +312,7 @@ router.get("/reports/view/:id", async (req, res) => {
       <h1 class="demo-title">RAPPORT.</h1>
 
       <p class="demo-muted">
+        Onderneming: <b>${escapeHtml(company.name)}</b><br>
         Periode: <b>${escapeHtml(report.filter_from)}</b> t.e.m. <b>${escapeHtml(report.filter_to)}</b>
       </p>
 

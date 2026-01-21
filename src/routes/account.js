@@ -1,4 +1,5 @@
 const express = require("express");
+const crypto = require("crypto");
 const { layout, layoutDemo, escapeHtml } = require("../ui/layout");
 
 const router = express.Router();
@@ -80,7 +81,17 @@ router.post("/demo/account", async (req, res) => {
     );
   }
 
+  // ✅ nieuw: per login een aparte demo-session
+  const demoSession = crypto.randomBytes(16).toString("hex");
+
   res.cookie("demo_account", "1", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 1000 * 60 * 60 * 12,
+  });
+
+  res.cookie("demo_session", demoSession, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

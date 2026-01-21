@@ -11,11 +11,22 @@ const router = express.Router();
    ========================= */
 
 function generateScanCode() {
+  // behoud jouw stijl: kort & uniek genoeg voor demo
   return crypto.randomBytes(4).toString("hex");
 }
 
-async function getCompany() {
-  return await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
+function getDemoSession(req) {
+  return String(req.cookies?.demo_session || "").trim();
+}
+
+async function getCompany(req) {
+  const sid = getDemoSession(req);
+  if (!sid) return null;
+
+  return await get(
+    `SELECT id, name FROM companies WHERE demo_session_id = $1 ORDER BY id LIMIT 1`,
+    [sid]
+  );
 }
 
 async function getEmployees(companyId) {
@@ -39,11 +50,51 @@ async function getEmployees(companyId) {
   );
 }
 
+async function ensureScantag(companyId) {
+  const tag = await get(
+    `SELECT id FROM scantags WHERE company_id = $1 ORDER BY id ASC LIMIT 1`,
+    [companyId]
+  );
+  if (tag) return tag.id;
+
+  const inserted = await get(
+    `INSERT INTO scantags (company_id, name) VALUES ($1,$2) RETURNING id`,
+    [companyId, "ScanTag"]
+  );
+  return inserted?.id || null;
+}
+
 /* =========================
    STEP 1 — Company
    ========================= */
 
 router.get("/wizard/company", async (req, res) => {
+  // als er geen demo_session is, moet je eerst naar account
+  if (!getDemoSession(req)) return res.redirect("/demo/account");
+
+  const company = await getCompany(req);
+
+  // als company al bestaat voor deze session, toon doorlink
+  if (company) {
+    return res.send(
+      layoutDemo(
+        "STAP 1",
+        `
+        <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
+        <h1 class="demo-title">STAP 1.</h1>
+
+        <p class="demo-lead">Vul de naam van jouw onderneming in.</p>
+
+        <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
+
+        <div class="demo-actions">
+          <a class="demo-btn primary" href="/wizard/employees">VOLGENDE</a>
+        </div>
+        `
+      )
+    );
+  }
+
   return res.send(
     layoutDemo(
       "STAP 1",
@@ -56,8 +107,9 @@ router.get("/wizard/company", async (req, res) => {
       <form method="POST" action="/wizard/company" class="demo-form">
         <label class="demo-label">Onderneming</label>
         <input class="demo-input" name="name" required />
+
         <div class="demo-actions">
-          <button class="demo-btn primary">VOLGENDE</button>
+          <button class="demo-btn primary" type="submit">VOLGENDE</button>
         </div>
       </form>
       `
@@ -66,10 +118,25 @@ router.get("/wizard/company", async (req, res) => {
 });
 
 router.post("/wizard/company", async (req, res) => {
+  const sid = getDemoSession(req);
+  if (!sid) return res.redirect("/demo/account");
+
   const name = String(req.body.name || "").trim();
   if (!name) return res.redirect("/wizard/company");
 
-  await run(`INSERT INTO companies (name) VALUES ($1)`, [name]);
+  // voorkom dubbele companies voor dezelfde session
+  const existing = await getCompany(req);
+  if (existing) return res.redirect("/wizard/employees");
+
+  const inserted = await get(
+    `INSERT INTO companies (name, demo_session_id) VALUES ($1,$2) RETURNING id`,
+    [name, sid]
+  );
+
+  if (inserted?.id) {
+    await ensureScantag(inserted.id);
+  }
+
   return res.redirect("/wizard/employees");
 });
 
@@ -78,7 +145,7 @@ router.post("/wizard/company", async (req, res) => {
    ========================= */
 
 router.get("/wizard/employees", async (req, res) => {
-  const company = await getCompany();
+  const company = await getCompany(req);
   if (!company) return res.redirect("/wizard/company");
 
   const employees = await getEmployees(company.id);
@@ -107,6 +174,8 @@ router.get("/wizard/employees", async (req, res) => {
         Voeg twee werknemers toe. Na toevoegen wordt automatisch een activatiecode gegenereerd.
       </p>
 
+      <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
+
       <form method="POST" action="/wizard/employees" class="demo-form">
         <label class="demo-label">Familienaam</label>
         <input class="demo-input" name="last_name" required />
@@ -115,24 +184,26 @@ router.get("/wizard/employees", async (req, res) => {
         <input class="demo-input" name="first_name" required />
 
         <div class="demo-actions">
-          <button class="demo-btn primary">TOEVOEGEN</button>
+          <button class="demo-btn primary" type="submit">TOEVOEGEN</button>
         </div>
       </form>
 
       ${
         employees.length > 0
           ? `
-        <table class="demo-table" style="margin-top:16px;">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Familienaam</th>
-              <th>Voornaam</th>
-              <th>Activatiecode</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
+        <div class="demo-tablewrap" style="margin-top:16px;">
+          <table class="demo-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Familienaam</th>
+                <th>Voornaam</th>
+                <th>Activatiecode</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
         `
           : ""
       }
@@ -142,7 +213,7 @@ router.get("/wizard/employees", async (req, res) => {
         ${
           employees.length >= 2
             ? `<a class="demo-btn primary" href="/wizard/reference">VOLGENDE</a>`
-            : ""
+            : `<button class="demo-btn primary" type="button" disabled>VOLGENDE</button>`
         }
       </div>
       `
@@ -151,7 +222,7 @@ router.get("/wizard/employees", async (req, res) => {
 });
 
 router.post("/wizard/employees", async (req, res) => {
-  const company = await getCompany();
+  const company = await getCompany(req);
   if (!company) return res.redirect("/wizard/company");
 
   const firstName = String(req.body.first_name || "").trim();
@@ -182,7 +253,7 @@ router.post("/wizard/employees", async (req, res) => {
    ========================= */
 
 router.get("/wizard/reference", async (req, res) => {
-  const company = await getCompany();
+  const company = await getCompany(req);
   if (!company) return res.redirect("/wizard/company");
 
   return res.send(

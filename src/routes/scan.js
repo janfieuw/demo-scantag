@@ -1,327 +1,327 @@
+// routes/scan.js
+//
+// Scan endpoints voor QR / ScanTag
+// - GET /scan/:code/in
+// - GET /scan/:code/out
+//
+// DB (jouw schema):
+// scan_events: id, company_id, employee_id, scantag_id, direction, "timestamp", [source], [ignored], [ignored_reason]
+//
+// Deze route:
+// - zoekt werknemer via employees.scan_code = :code
+// - neemt company_id van employee
+// - zoekt scantag_id (eerste scantag van company, of NULL als niet gevonden)
+// - voert cooldown check uit (laatste NIET-genegeerde scan binnen 5 minuten -> ignore)
+// - logt scan (en eventueel ignored flags als kolommen bestaan)
+
 const express = require("express");
-const crypto = require("crypto");
 const { DateTime } = require("luxon");
 const { get, run } = require("../db");
-const { COOLDOWN_MINUTES, COOKIE_NAME, IS_PROD } = require("../config");
-const { layout, escapeHtml } = require("../ui/layout");
-const { cardHeader } = require("../ui/components");
+const { layoutDemo, escapeHtml } = require("../ui/layout");
 
 const router = express.Router();
 
 const TZ = "Europe/Brussels";
+const COOLDOWN_MINUTES = 5;
 
-function makeToken() {
-  return crypto.randomBytes(24).toString("hex");
-}
+// Cache of scan_events extra kolommen bestaan (ignored/source)
+let scanEventsHasIgnoredCols = null;
 
-function formatBelgianTime(ts) {
-  if (!ts) return "—";
+async function detectScanEventsColumns() {
+  if (scanEventsHasIgnoredCols !== null) return scanEventsHasIgnoredCols;
 
-  return DateTime
-    .fromJSDate(new Date(ts), { zone: "utc" })
-    .setZone("Europe/Brussels")
-    .toFormat("dd/LL/yyyy HH:mm:ss");
-}
-
-
-async function resolveTag(tagId) {
-  return await get(
-    `SELECT st.id AS tag_id, st.name AS tag_name, c.id AS company_id, c.name AS company_name
-     FROM scantags st
-     JOIN companies c ON c.id = st.company_id
-     WHERE st.id = $1`,
-    [tagId]
-  );
-}
-
-async function resolveBinding(token) {
-  if (!token) return null;
-  return await get(
-    `SELECT db.company_id, e.id AS employee_id, e.display_name, e.scan_code
-     FROM device_bindings db
-     JOIN employees e ON e.id = db.employee_id
-     WHERE db.token = $1`,
-    [token]
-  );
-}
-
-async function shouldCooldown(employeeId, direction) {
   const row = await get(
-    `SELECT
-       CASE
-         WHEN MAX(timestamp) IS NULL THEN false
-         WHEN NOW() - MAX(timestamp) < ($1 || ' minutes')::interval THEN true
-         ELSE false
-       END AS is_cooldown
-     FROM scan_events
-     WHERE employee_id = $2 AND direction = $3`,
-    [COOLDOWN_MINUTES, employeeId, direction]
+    `
+    SELECT
+      EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='scan_events' AND column_name='ignored'
+      ) AS has_ignored,
+      EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='scan_events' AND column_name='ignored_reason'
+      ) AS has_ignored_reason,
+      EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='scan_events' AND column_name='source'
+      ) AS has_source
+    `
   );
-  return row?.is_cooldown === true;
+
+  scanEventsHasIgnoredCols = {
+    has_ignored: row?.has_ignored === true,
+    has_ignored_reason: row?.has_ignored_reason === true,
+    has_source: row?.has_source === true,
+  };
+
+  return scanEventsHasIgnoredCols;
 }
 
-async function logScanEvent({ companyId, employeeId, tagId, direction }) {
-  const cooldown = await shouldCooldown(employeeId, direction);
-  if (cooldown) {
-    return { skipped: true, reason: `Cooldown (${COOLDOWN_MINUTES} min)` };
-  }
-
-  const inserted = await get(
-    `INSERT INTO scan_events (company_id, employee_id, scantag_id, direction)
-     VALUES ($1,$2,$3,$4)
-     RETURNING id`,
-    [companyId, employeeId, tagId, direction]
-  );
-
-  const event = await get(
-    `SELECT se.timestamp,
-            e.display_name,
-            c.name AS company_name,
-            st.name AS tag_name
-     FROM scan_events se
-     JOIN employees e ON e.id = se.employee_id
-     JOIN companies c ON c.id = se.company_id
-     JOIN scantags st ON st.id = se.scantag_id
-     WHERE se.id = $1`,
-    [inserted.id]
-  );
-
-  return { skipped: false, event };
+function nowTs() {
+  return DateTime.now().setZone(TZ).toJSDate();
 }
 
-// IN scan
-router.get("/t/:tagId/in", async (req, res) => {
-  const tag = await resolveTag(Number(req.params.tagId));
-  if (!tag) {
-    return res
-      .status(404)
-      .send(layout("Onbekend", `<div class="card"><h1>Onbekende ScanTag</h1></div>`));
-  }
+function renderScanResult({ title, headline, lines = [], ok = true }) {
+  const list = lines.map((l) => `<div class="demo-muted">${escapeHtml(l)}</div>`).join("");
 
-  const binding = await resolveBinding(req.cookies[COOKIE_NAME]);
+  return layoutDemo(
+    title,
+    `
+      <div class="demo-kicker">PUNCTOO — SCAN</div>
+      <h1 class="demo-title">${escapeHtml(headline)}</h1>
 
-  // Geen binding of andere company => ACTIVEER smartphone (met activatiecode)
-  if (!binding || binding.company_id !== tag.company_id) {
-    return res.send(
-      layout(
-        "Activeer smartphone",
-        `<div class="card">
-          ${cardHeader(tag.company_name, "IN")}
-          <div style="height:10px"></div>
-          <div class="big">Activeer smartphone</div>
-          <p class="muted">
-            Geef de <b>activatiecode</b> in die je kreeg bij het toevoegen van de werknemer.
-          </p>
+      <div style="margin-top:10px;">
+        ${list}
+      </div>
 
-          <form method="POST" action="/activate">
-            <input type="hidden" name="tagId" value="${tag.tag_id}" />
-            <label class="muted" for="code">Activatiecode</label><br/>
-            <input id="code" name="scan_code" placeholder="bv. HGk52Dclu" autocomplete="off" required />
-            <div style="height:12px"></div>
-            <button class="btn" type="submit">Activeer & registreer IN</button>
-          </form>
-
-          <div class="row" style="margin-top:14px;">
-            <a class="btn secondary" href="/wizard/company">Wizard</a>
-            <a class="btn secondary" href="/tags">QR’s</a>
-          </div>
-        </div>`
-      )
-    );
-  }
-
-  // Binding ok => registreer IN
-  const result = await logScanEvent({
-    companyId: tag.company_id,
-    employeeId: binding.employee_id,
-    tagId: tag.tag_id,
-    direction: "IN",
-  });
-
-  if (result.skipped) {
-    return res.send(
-      layout(
-        "Genegeerd",
-        `<div class="card">
-          ${cardHeader(tag.company_name, "IN")}
-          <div style="height:10px"></div>
-          <div class="big">⏱️ Genegeerd</div>
-          <p class="muted">${escapeHtml(result.reason)}</p>
-          <p class="muted">Werknemer: <b>${escapeHtml(binding.display_name)}</b></p>
-          <div class="row" style="margin-top:14px;">
-            <a class="btn secondary" href="/tags">QR’s</a>
-            <a class="btn secondary" href="/admin">Rapport</a>
-          </div>
-        </div>`
-      )
-    );
-  }
-
-  const ev = result.event;
-  return res.send(
-    layout(
-      "IN geregistreerd",
-      `<div class="card">
-        ${cardHeader(ev.company_name, "IN")}
-        <div style="height:10px"></div>
-        <div class="big">✅ IN</div>
-        <p style="margin:0; font-size:18px;">Werknemer: <b>${escapeHtml(ev.display_name)}</b></p>
-        <p class="muted" style="margin-top:8px;">
-          Tijd: <b>${escapeHtml(formatBelgianTime(ev.timestamp))}</b><br/>
-          Tag: ${escapeHtml(ev.tag_name)}
-        </p>
-        <div class="row" style="margin-top:14px;">
-          <a class="btn secondary" href="/tags">QR’s</a>
-          <a class="btn secondary" href="/admin">Rapport</a>
-        </div>
-      </div>`
-    )
+      <div class="demo-actions" style="margin-top:18px;">
+        <a class="demo-btn primary" href="/reports">RAPPORTEN</a>
+        <a class="demo-btn ghost" href="/wizard/company">DEMO</a>
+      </div>
+    `
   );
-});
+}
 
-// OUT scan
-router.get("/t/:tagId/out", async (req, res) => {
-  const tag = await resolveTag(Number(req.params.tagId));
-  if (!tag) {
-    return res
-      .status(404)
-      .send(layout("Onbekend", `<div class="card"><h1>Onbekende ScanTag</h1></div>`));
-  }
-
-  const binding = await resolveBinding(req.cookies[COOKIE_NAME]);
-
-  // OUT zonder activatie => geen activatie via OUT
-  if (!binding || binding.company_id !== tag.company_id) {
-    return res.send(
-      layout(
-        "Eerst activeren",
-        `<div class="card">
-          ${cardHeader(tag.company_name, "OUT")}
-          <div style="height:10px"></div>
-          <div class="big">Eerst activeren</div>
-          <p class="muted">Deze smartphone is nog niet geactiveerd. Dit kan alleen via een <b>IN</b>-scan.</p>
-          <div class="row" style="margin-top:14px;">
-            <a class="btn" href="/t/${tag.tag_id}/in">Scan IN om te activeren</a>
-            <a class="btn secondary" href="/tags">QR’s</a>
-          </div>
-        </div>`
-      )
-    );
-  }
-
-  const result = await logScanEvent({
-    companyId: tag.company_id,
-    employeeId: binding.employee_id,
-    tagId: tag.tag_id,
-    direction: "OUT",
-  });
-
-  if (result.skipped) {
-    return res.send(
-      layout(
-        "Genegeerd",
-        `<div class="card">
-          ${cardHeader(tag.company_name, "OUT")}
-          <div style="height:10px"></div>
-          <div class="big">⏱️ Genegeerd</div>
-          <p class="muted">${escapeHtml(result.reason)}</p>
-          <p class="muted">Werknemer: <b>${escapeHtml(binding.display_name)}</b></p>
-          <div class="row" style="margin-top:14px;">
-            <a class="btn secondary" href="/admin">Rapport</a>
-          </div>
-        </div>`
-      )
-    );
-  }
-
-  const ev = result.event;
-  return res.send(
-    layout(
-      "OUT geregistreerd",
-      `<div class="card">
-        ${cardHeader(ev.company_name, "OUT")}
-        <div style="height:10px"></div>
-        <div class="big">✅ OUT</div>
-        <p style="margin:0; font-size:18px;">Werknemer: <b>${escapeHtml(ev.display_name)}</b></p>
-        <p class="muted" style="margin-top:8px;">
-          Tijd: <b>${escapeHtml(formatBelgianTime(ev.timestamp))}</b><br/>
-          Tag: ${escapeHtml(ev.tag_name)}
-        </p>
-        <div class="row" style="margin-top:14px;">
-          <a class="btn secondary" href="/admin">Rapport</a>
-        </div>
-      </div>`
-    )
-  );
-});
-
-// ACTIVATIE endpoint (post)
-router.post("/activate", async (req, res) => {
-  const tagId = Number(req.body.tagId);
-  const scanCode = String(req.body.scan_code || "").trim();
-
-  const tag = await resolveTag(tagId);
-  if (!tag) {
-    return res
-      .status(404)
-      .send(layout("Onbekend", `<div class="card"><h1>Onbekende ScanTag</h1></div>`));
-  }
-
-  if (!scanCode) {
-    return res.redirect(`/t/${tagId}/in`);
-  }
-
-  // Zoek werknemer via scan_code (niet via naam)
-  const emp = await get(
-    `SELECT id, display_name
-     FROM employees
-     WHERE company_id = $1 AND scan_code = $2
-     LIMIT 1`,
-    [tag.company_id, scanCode]
+async function findEmployeeByScanCode(code) {
+  // We proberen eerst met first_name/last_name, maar vallen terug op display_name als je schema dat zo heeft.
+  const employee = await get(
+    `
+    SELECT
+      id,
+      company_id,
+      scan_code,
+      first_name,
+      last_name,
+      display_name
+    FROM employees
+    WHERE scan_code = $1
+    LIMIT 1
+    `,
+    [code]
   );
 
-  if (!emp) {
-    return res.send(
-      layout(
-        "Onbekende code",
-        `<div class="card">
-          ${cardHeader(tag.company_name, "IN")}
-          <div style="height:10px"></div>
-          <div class="big">❌ Onbekende activatiecode</div>
-          <p class="muted">Controleer de code en probeer opnieuw.</p>
-          <div class="row" style="margin-top:14px;">
-            <a class="btn" href="/t/${tagId}/in">Opnieuw</a>
-            <a class="btn secondary" href="/wizard/employees">Bekijk codes</a>
-          </div>
-        </div>`
-      )
+  return employee || null;
+}
+
+async function getScantagIdForCompany(companyId) {
+  // In jouw wizard werd een scantag aangemaakt. Neem de eerste.
+  const tag = await get(
+    `SELECT id FROM scantags WHERE company_id = $1 ORDER BY id ASC LIMIT 1`,
+    [companyId]
+  );
+  return tag?.id || null;
+}
+
+function employeeLabel(emp) {
+  const fn = (emp.first_name || "").trim();
+  const ln = (emp.last_name || "").trim();
+  if (ln || fn) return `${ln} ${fn}`.trim();
+  return (emp.display_name || "").trim() || `#${emp.id}`;
+}
+
+async function getLastNonIgnoredEvent(employeeId) {
+  // Als ignored kolom bestaat, filter ignored=false. Anders: gewoon laatste event.
+  const cols = await detectScanEventsColumns();
+
+  if (cols.has_ignored) {
+    return await get(
+      `
+      SELECT direction, "timestamp"
+      FROM scan_events
+      WHERE employee_id = $1 AND ignored = FALSE
+      ORDER BY "timestamp" DESC
+      LIMIT 1
+      `,
+      [employeeId]
     );
   }
 
-  // 1 binding per werknemer + verwijder eventuele binding op deze cookie
-  await run(`DELETE FROM device_bindings WHERE employee_id = $1`, [emp.id]);
+  return await get(
+    `
+    SELECT direction, "timestamp"
+    FROM scan_events
+    WHERE employee_id = $1
+    ORDER BY "timestamp" DESC
+    LIMIT 1
+    `,
+    [employeeId]
+  );
+}
 
-  const existingToken = req.cookies[COOKIE_NAME];
-  if (existingToken) {
-    await run(`DELETE FROM device_bindings WHERE token = $1`, [existingToken]);
+async function insertScanEvent({
+  companyId,
+  employeeId,
+  scantagId,
+  direction,
+  ts,
+  ignored,
+  ignored_reason,
+}) {
+  const cols = await detectScanEventsColumns();
+
+  // We proberen een "rijke" insert als kolommen bestaan
+  if (cols.has_source && cols.has_ignored && cols.has_ignored_reason) {
+    await run(
+      `
+      INSERT INTO scan_events
+        (company_id, employee_id, scantag_id, direction, "timestamp", source, ignored, ignored_reason)
+      VALUES
+        ($1, $2, $3, $4, $5, $6, $7, $8)
+      `,
+      [
+        companyId,
+        employeeId,
+        scantagId,
+        direction,
+        ts,
+        "SCAN",
+        ignored === true,
+        ignored_reason || null,
+      ]
+    );
+    return;
   }
 
-  const token = makeToken();
+  // Minimaal: jouw huidige schema
   await run(
-    `INSERT INTO device_bindings (company_id, employee_id, token)
-     VALUES ($1,$2,$3)`,
-    [tag.company_id, emp.id, token]
+    `
+    INSERT INTO scan_events
+      (company_id, employee_id, scantag_id, direction, "timestamp")
+    VALUES
+      ($1, $2, $3, $4, $5)
+    `,
+    [companyId, employeeId, scantagId, direction, ts]
   );
+}
 
-  res.cookie(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: IS_PROD,
-    sameSite: "lax",
-    maxAge: 1000 * 60 * 60 * 24 * 365,
+async function handleScan(req, res, direction) {
+  const code = String(req.params.code || "").trim();
+
+  if (!code) {
+    return res.status(400).send(
+      renderScanResult({
+        title: "SCAN — FOUT",
+        headline: "ONGELDIGE CODE",
+        lines: ["Geen code gevonden in de URL."],
+        ok: false,
+      })
+    );
+  }
+
+  const emp = await findEmployeeByScanCode(code);
+  if (!emp) {
+    return res.status(404).send(
+      renderScanResult({
+        title: "SCAN — FOUT",
+        headline: "ONBEKENDE CODE",
+        lines: [`Activatiecode: ${code}`, "Geen werknemer gevonden voor deze code."],
+        ok: false,
+      })
+    );
+  }
+
+  const companyId = emp.company_id;
+  const employeeId = emp.id;
+  const scantagId = await getScantagIdForCompany(companyId);
+
+  const ts = nowTs();
+
+  // Cooldown check (5 min na laatste scan)
+  const last = await getLastNonIgnoredEvent(employeeId);
+
+  if (last && last.timestamp) {
+    const lastTs = new Date(last.timestamp);
+    const diffMin = (ts - lastTs) / 60000;
+
+    if (diffMin >= 0 && diffMin < COOLDOWN_MINUTES) {
+      // Genegeerd door cooldown
+      // Als ignored kolommen bestaan: log het; anders: return zonder insert
+      const cols = await detectScanEventsColumns();
+
+      if (cols.has_ignored && cols.has_ignored_reason) {
+        await insertScanEvent({
+          companyId,
+          employeeId,
+          scantagId,
+          direction,
+          ts,
+          ignored: true,
+          ignored_reason: "COOLDOWN_5_MIN",
+        });
+      }
+
+      return res.send(
+        renderScanResult({
+          title: "SCAN — OK",
+          headline: "SCAN GENEGEERD",
+          lines: [
+            `Werknemer: ${employeeLabel(emp)}`,
+            `Richting: ${direction}`,
+            `Cooldown: ${COOLDOWN_MINUTES} minuten`,
+            "Deze scan viel binnen de cooldown en werd genegeerd.",
+          ],
+          ok: true,
+        })
+      );
+    }
+  }
+
+  // Extra fallback: als iemand exact dezelfde richting 2x na elkaar scant (buiten cooldown),
+  // loggen we toch: rapport-engine zal dit later correct interpreteren (IN na IN, OUT na OUT).
+  await insertScanEvent({
+    companyId,
+    employeeId,
+    scantagId,
+    direction,
+    ts,
+    ignored: false,
+    ignored_reason: null,
   });
 
-  // Na activatie: registreer meteen IN via redirect (zelfde flow/HTML)
-  return res.redirect(`/t/${tagId}/in`);
+  return res.send(
+    renderScanResult({
+      title: "SCAN — OK",
+      headline: "SCAN GEREGISTREERD",
+      lines: [
+        `Werknemer: ${employeeLabel(emp)}`,
+        `Richting: ${direction}`,
+        `Tijd: ${DateTime.fromJSDate(ts, { zone: TZ }).toFormat("dd/LL/yyyy HH:mm:ss")}`,
+      ],
+      ok: true,
+    })
+  );
+}
+
+router.get("/scan/:code/in", async (req, res) => {
+  try {
+    return await handleScan(req, res, "IN");
+  } catch (err) {
+    console.error("Scan IN failed:", err);
+    return res.status(500).send(
+      renderScanResult({
+        title: "SCAN — FOUT",
+        headline: "SERVERFOUT",
+        lines: ["Er ging iets mis bij het verwerken van de scan."],
+        ok: false,
+      })
+    );
+  }
+});
+
+router.get("/scan/:code/out", async (req, res) => {
+  try {
+    return await handleScan(req, res, "OUT");
+  } catch (err) {
+    console.error("Scan OUT failed:", err);
+    return res.status(500).send(
+      renderScanResult({
+        title: "SCAN — FOUT",
+        headline: "SERVERFOUT",
+        lines: ["Er ging iets mis bij het verwerken van de scan."],
+        ok: false,
+      })
+    );
+  }
 });
 
 module.exports = router;

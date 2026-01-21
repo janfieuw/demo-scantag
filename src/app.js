@@ -1,46 +1,26 @@
-const path = require("path");
+// app.js
 const express = require("express");
 const cookieParser = require("cookie-parser");
-const { layout } = require("./ui/layout");
 
-const accountRouter = require("./routes/account");
-const wizardRouter = require("./routes/wizard");
-const tagsRouter = require("./routes/tags");
+const reportsRouter = require("./routes/reports");
 const scanRouter = require("./routes/scan");
-const adminRouter = require("./routes/admin");
 
 function createApp() {
   const app = express();
 
-  app.set("trust proxy", 1);
-
+  app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
 
-  // Styles
-  // Static assets (styles + images)
-app.use("/static", express.static(path.join(__dirname, "styles")));
-app.use("/static", express.static(path.join(__dirname, "static")));
+  app.use("/static", express.static("public"));
 
-
-  // Landing: start with Account (per definitieve demo-flow)
-  app.get("/", (req, res) => {
-    return res.redirect("/demo/account");
-  });
-
-  // Demo/account
-  app.use(accountRouter);
-
-  // App routes
-  app.use(wizardRouter);
-  app.use(tagsRouter);
+  // Routes
+  app.use(reportsRouter);
   app.use(scanRouter);
-  app.use(adminRouter);
 
+  // 404
   app.use((req, res) => {
-    res
-      .status(404)
-      .send(layout("404", `<div class="card"><h1>404</h1><p class="muted">Niet gevonden.</p></div>`));
+    res.status(404).send("Not found");
   });
 
   return app;

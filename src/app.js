@@ -3,41 +3,51 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const path = require("path");
 
-// Bestaande routes (die jij al hebt)
+// Routers
 const accountRouter = require("./routes/account");
 const wizardRouter = require("./routes/wizard");
 const adminRouter = require("./routes/admin");
-
-// Nieuwe routes (die we net toegevoegd hebben)
 const reportsRouter = require("./routes/reports");
 const scanRouter = require("./routes/scan");
 
 function createApp() {
   const app = express();
 
-  // Middleware
+  /* ------------------------
+     Middleware
+  ------------------------ */
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
 
-  // Static files: zorg dat /static/* werkt (base.css, demo.css, afbeeldingen, ...)
-  // Pas deze folder aan als jouw assets niet in ./public staan.
-  app.use("/static", express.static(path.join(__dirname, "public")));
+  /* ------------------------
+     Static files
+     /static → src/styles
+  ------------------------ */
+  app.use(
+    "/static",
+    express.static(path.join(__dirname, "styles"))
+  );
 
-  // Home -> start flow
+  /* ------------------------
+     Home
+  ------------------------ */
   app.get("/", (req, res) => {
     return res.redirect("/demo/account");
   });
 
-  // Routes mounten (BELANGRIJK)
+  /* ------------------------
+     Routes
+  ------------------------ */
   app.use(accountRouter);
   app.use(wizardRouter);
   app.use(adminRouter);
-
   app.use(reportsRouter);
   app.use(scanRouter);
 
-  // 404 (altijd als laatste)
+  /* ------------------------
+     404
+  ------------------------ */
   app.use((req, res) => {
     res.status(404).send("Not found");
   });

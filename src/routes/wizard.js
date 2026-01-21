@@ -6,6 +6,7 @@ const { layoutDemo, escapeHtml } = require("../ui/layout");
 
 const router = express.Router();
 
+// Wizard en referentietijd werken in Belgische tijd
 const TZ = "Europe/Brussels";
 
 /* --------------------------
@@ -27,22 +28,40 @@ async function getCompany() {
   return await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
 }
 
+function employeeLabel(e) {
+  const fn = String(e.first_name || "").trim();
+  const ln = String(e.last_name || "").trim();
+  if (ln || fn) return `${ln} ${fn}`.trim();
+  return String(e.display_name || "").trim() || "—";
+}
+
+function buildDisplayName(firstName, lastName) {
+  const fn = String(firstName || "").trim();
+  const ln = String(lastName || "").trim();
+  const label = `${ln} ${fn}`.trim();
+  return label || fn || ln || "";
+}
+
 async function getEmployees(companyId) {
   return await all(
-    `SELECT id, display_name, scan_code, reference_mode
-     FROM employees
-     WHERE company_id = $1
-     ORDER BY id`,
+    `
+    SELECT id, first_name, last_name, display_name, scan_code, reference_mode
+    FROM employees
+    WHERE company_id = $1
+    ORDER BY last_name ASC NULLS LAST, first_name ASC NULLS LAST, display_name ASC, id ASC
+    `,
     [companyId]
   );
 }
 
 async function getEmployee(companyId, employeeId) {
   return await get(
-    `SELECT id, company_id, display_name, scan_code, reference_mode
-     FROM employees
-     WHERE id=$1 AND company_id=$2
-     LIMIT 1`,
+    `
+    SELECT id, company_id, first_name, last_name, display_name, scan_code, reference_mode
+    FROM employees
+    WHERE id=$1 AND company_id=$2
+    LIMIT 1
+    `,
     [employeeId, companyId]
   );
 }
@@ -85,7 +104,7 @@ async function generateUniqueScanCode(companyId) {
 }
 
 /* --------------------------
-   Reset
+   Reset: alles leeg
 -------------------------- */
 router.post("/wizard/reset", async (req, res) => {
   await run(`DELETE FROM scan_events`);
@@ -114,12 +133,11 @@ router.post("/wizard/employees/unbind", async (req, res) => {
   if (!emp) return res.redirect("/wizard/employees");
 
   await run(`DELETE FROM device_bindings WHERE employee_id = $1`, [employeeId]);
-
   return res.redirect("/wizard/employees");
 });
 
 /* --------------------------
-   STEP 1 — Company
+   STEP 1 — Onderneming
 -------------------------- */
 router.get("/wizard/company", async (req, res) => {
   const company = await getCompany();
@@ -137,7 +155,6 @@ router.get("/wizard/company", async (req, res) => {
 
           <div class="demo-actions">
             <a class="demo-btn primary" href="/wizard/employees">VOLGENDE</a>
-
             <form method="POST" action="/wizard/reset" style="margin:0;">
               <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
             </form>
@@ -167,14 +184,11 @@ router.get("/wizard/company", async (req, res) => {
 
           <div class="demo-actions">
             <button class="demo-btn primary" type="submit">VOLGENDE</button>
+            <form method="POST" action="/wizard/reset" style="margin:0;">
+              <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
+            </form>
           </div>
         </form>
-
-        <div class="demo-actions" style="margin-top:12px;">
-          <form method="POST" action="/wizard/reset" style="margin:0;">
-            <button class="demo-btn secondary" type="submit">Opnieuw beginnen</button>
-          </form>
-        </div>
 
         <div class="demo-footer">
           <div class="demo-brand">PUNCTOO</div>
@@ -207,7 +221,7 @@ router.post("/wizard/company", async (req, res) => {
 });
 
 /* --------------------------
-   STEP 2 — Employees
+   STEP 2 — Werknemers + activatiecode
 -------------------------- */
 router.get("/wizard/employees", async (req, res) => {
   const company = await getCompany();
@@ -221,7 +235,7 @@ router.get("/wizard/employees", async (req, res) => {
       (e, i) => `
         <tr>
           <td>${i + 1}</td>
-          <td>${escapeHtml(e.display_name)}</td>
+          <td>${escapeHtml(employeeLabel(e))}</td>
           <td><code>${escapeHtml(e.scan_code)}</code></td>
           <td>
             <form method="POST" action="/wizard/employees/unbind" style="margin:0;">
@@ -237,8 +251,12 @@ router.get("/wizard/employees", async (req, res) => {
   const addForm = canAdd
     ? `
       <form class="demo-form" method="POST" action="/wizard/employees/add" style="margin-top:16px;">
-        <label class="demo-label" for="display_name">Naam werknemer (${employees.length + 1}/2)</label>
-        <input class="demo-input" id="display_name" name="display_name" placeholder="bv. JAN" required />
+        <label class="demo-label" for="first_name">Voornaam (${employees.length + 1}/2)</label>
+        <input class="demo-input" id="first_name" name="first_name" placeholder="bv. JAN" required />
+
+        <label class="demo-label" for="last_name">Familienaam</label>
+        <input class="demo-input" id="last_name" name="last_name" placeholder="bv. PEETERS" required />
+
         <div class="demo-actions">
           <button class="demo-btn primary" type="submit">TOEVOEGEN</button>
         </div>
@@ -249,7 +267,7 @@ router.get("/wizard/employees", async (req, res) => {
   const nextBtn =
     employees.length === 2
       ? `<a class="demo-btn primary" href="/wizard/reference">VOLGENDE</a>`
-      : `<button class="demo-btn primary" type="button" disabled>VOLGENDE</button>`;
+      : `<button class="demo-btn primary" type="button" disabled style="opacity:.5; cursor:not-allowed;">VOLGENDE</button>`;
 
   return res.send(
     layoutDemo(
@@ -264,7 +282,6 @@ router.get("/wizard/employees", async (req, res) => {
 
         <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
 
-        <!-- ✅ hier WEL scroll-x: tabel kan breed worden -->
         <div class="demo-tablewrap scroll-x">
           <table class="demo-table">
             <thead>
@@ -301,22 +318,27 @@ router.post("/wizard/employees/add", async (req, res) => {
   const employees = await getEmployees(company.id);
   if (employees.length >= 2) return res.redirect("/wizard/employees");
 
-  const displayName = String(req.body.display_name || "").trim();
-  if (!displayName) return res.redirect("/wizard/employees");
+  const firstName = String(req.body.first_name || "").trim();
+  const lastName = String(req.body.last_name || "").trim();
 
+  if (!firstName || !lastName) return res.redirect("/wizard/employees");
+
+  const displayName = buildDisplayName(firstName, lastName);
   const scanCode = await generateUniqueScanCode(company.id);
 
   await run(
-    `INSERT INTO employees (company_id, display_name, scan_code)
-     VALUES ($1,$2,$3)`,
-    [company.id, displayName, scanCode]
+    `
+    INSERT INTO employees (company_id, first_name, last_name, display_name, scan_code)
+    VALUES ($1,$2,$3,$4,$5)
+    `,
+    [company.id, firstName, lastName, displayName, scanCode]
   );
 
   return res.redirect("/wizard/employees");
 });
 
 /* --------------------------
-   STEP 3 — Reference
+   STEP 3 — Referentietijd (ROOSTER/KALENDER)
 -------------------------- */
 async function isEmployeeReferenceOk(employeeId) {
   const modeRow = await get(`SELECT reference_mode FROM employees WHERE id=$1`, [
@@ -368,7 +390,7 @@ router.get("/wizard/reference", async (req, res) => {
       return `
         <tr>
           <td>${idx + 1}</td>
-          <td>${escapeHtml(e.display_name || "—")}</td>
+          <td>${escapeHtml(employeeLabel(e))}</td>
           <td>
             <form method="POST" action="/wizard/reference/open" style="display:flex; gap:10px; align-items:center; margin:0;">
               <input type="hidden" name="employee_id" value="${e.id}" />
@@ -394,7 +416,7 @@ router.get("/wizard/reference", async (req, res) => {
 
   const nextBtn = allOk
     ? `<a class="demo-btn primary" href="/wizard/qrs">VOLGENDE</a>`
-    : `<button class="demo-btn primary" type="button" disabled>VOLGENDE</button>`;
+    : `<button class="demo-btn primary" type="button" disabled style="opacity:.5; cursor:not-allowed;">VOLGENDE</button>`;
 
   return res.send(
     layoutDemo(
@@ -410,7 +432,6 @@ router.get("/wizard/reference", async (req, res) => {
 
         <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
 
-        <!-- ✅ overzicht kan breed worden: scroll-x -->
         <div class="demo-tablewrap scroll-x">
           <table class="demo-table">
             <thead><tr><th>#</th><th>Werknemer</th><th>Instelling</th><th>Status</th></tr></thead>
@@ -450,10 +471,7 @@ router.post("/wizard/reference/open", async (req, res) => {
   const emp = await getEmployee(company.id, employeeId);
   if (!emp) return res.redirect("/wizard/reference");
 
-  await run(`UPDATE employees SET reference_mode=$1 WHERE id=$2`, [
-    mode,
-    employeeId,
-  ]);
+  await run(`UPDATE employees SET reference_mode=$1 WHERE id=$2`, [mode, employeeId]);
 
   if (mode === "ROOSTER") {
     return res.redirect(`/wizard/reference/rooster?employeeId=${employeeId}`);
@@ -479,9 +497,7 @@ router.get("/wizard/reference/rooster", async (req, res) => {
      ORDER BY weekday ASC`,
     [employeeId]
   );
-  const map = new Map(
-    existing.map((r) => [Number(r.weekday), Number(r.expected_minutes)])
-  );
+  const map = new Map(existing.map((r) => [Number(r.weekday), Number(r.expected_minutes)]));
 
   const rows = [1, 2, 3, 4, 5, 6, 7]
     .map((dow) => {
@@ -489,9 +505,7 @@ router.get("/wizard/reference/rooster", async (req, res) => {
       return `
         <tr>
           <td><b>${weekdayLabel(dow)}</b></td>
-          <td>
-            <input class="demo-input" style="max-width:160px;" type="number" min="0" name="m_${dow}" placeholder="min" value="${escapeHtml(val)}" />
-          </td>
+          <td><input class="demo-input" style="max-width:160px;" type="number" min="0" name="m_${dow}" placeholder="min" value="${escapeHtml(val)}" /></td>
         </tr>
       `;
     })
@@ -503,13 +517,12 @@ router.get("/wizard/reference/rooster", async (req, res) => {
       `
         <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
         <h1 class="demo-title">PATROON.</h1>
-        <p class="demo-muted">Werknemer: <b>${escapeHtml(emp.display_name || "—")}</b></p>
+        <p class="demo-muted">Werknemer: <b>${escapeHtml(employeeLabel(emp))}</b></p>
         <p class="demo-lead">Vul de referentietijd in (in minuten) per weekdag. Leeg of 0 = geen referentietijd op die dag.</p>
 
         <form class="demo-form" method="POST" action="/wizard/reference/rooster/save">
           <input type="hidden" name="employee_id" value="${employeeId}" />
 
-          <!-- ✅ hier GEEN scroll-x: voorkomt foute scrollbar -->
           <div class="demo-tablewrap">
             <table class="demo-table">
               <thead><tr><th>Dag</th><th>Referentietijd (min)</th></tr></thead>
@@ -537,13 +550,9 @@ router.post("/wizard/reference/rooster/save", async (req, res) => {
   const emp = await getEmployee(company.id, employeeId);
   if (!emp) return res.redirect("/wizard/reference");
 
-  await run(`UPDATE employees SET reference_mode='ROOSTER' WHERE id=$1`, [
-    employeeId,
-  ]);
+  await run(`UPDATE employees SET reference_mode='ROOSTER' WHERE id=$1`, [employeeId]);
 
-  await run(`DELETE FROM employee_reference_pattern WHERE employee_id=$1`, [
-    employeeId,
-  ]);
+  await run(`DELETE FROM employee_reference_pattern WHERE employee_id=$1`, [employeeId]);
 
   for (const dow of [1, 2, 3, 4, 5, 6, 7]) {
     const raw = req.body[`m_${dow}`];
@@ -652,7 +661,7 @@ router.get("/wizard/reference/kalender", async (req, res) => {
       `
         <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
         <h1 class="demo-title">KALENDER.</h1>
-        <p class="demo-muted">Werknemer: <b>${escapeHtml(emp.display_name || "—")}</b></p>
+        <p class="demo-muted">Werknemer: <b>${escapeHtml(employeeLabel(emp))}</b></p>
 
         <p class="demo-lead">
           Je hoeft enkel de dagen in te vullen waarop je zeker een scan-IN zal hebben.
@@ -666,7 +675,6 @@ router.get("/wizard/reference/kalender", async (req, res) => {
         <form class="demo-form" method="POST" action="/wizard/reference/kalender/save">
           <input type="hidden" name="employee_id" value="${employeeId}" />
 
-          <!-- ✅ hier ook GEEN scroll-x -->
           <div class="demo-tablewrap">
             <table class="demo-table">
               <thead><tr><th>Dag</th><th>Referentietijd (min)</th></tr></thead>
@@ -708,9 +716,7 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
   const emp = await getEmployee(company.id, employeeId);
   if (!emp) return res.redirect("/wizard/reference");
 
-  await run(`UPDATE employees SET reference_mode='KALENDER' WHERE id=$1`, [
-    employeeId,
-  ]);
+  await run(`UPDATE employees SET reference_mode='KALENDER' WHERE id=$1`, [employeeId]);
 
   await run(
     `

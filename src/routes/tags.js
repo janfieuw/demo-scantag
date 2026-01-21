@@ -1,102 +1,117 @@
+// routes/tags.js
 const express = require("express");
-const QRCode = require("qrcode");
+const { DateTime } = require("luxon");
 const { get, all } = require("../db");
-const { layout, escapeHtml } = require("../ui/layout");
+const { layoutDemo, escapeHtml } = require("../ui/layout");
 
 const router = express.Router();
+const TZ = "Europe/Brussels";
 
-function getBaseUrl(req) {
-  return `${req.protocol}://${req.get("host")}`;
+async function getCompany() {
+  return await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
 }
 
-async function makeQrSvg(url) {
-  return await QRCode.toString(url, { type: "svg", margin: 1, width: 180 });
+async function getEmployees(companyId) {
+  // Sorteer alfabetisch op familienaam als beschikbaar, anders display_name
+  return await all(
+    `
+    SELECT id, first_name, last_name, display_name, scan_code
+    FROM employees
+    WHERE company_id = $1
+    ORDER BY
+      COALESCE(last_name, '') ASC,
+      COALESCE(first_name, '') ASC,
+      COALESCE(display_name, '') ASC,
+      id ASC
+    `,
+    [companyId]
+  );
+}
+
+async function getScantag(companyId) {
+  return await get(
+    `SELECT id, name FROM scantags WHERE company_id = $1 ORDER BY id ASC LIMIT 1`,
+    [companyId]
+  );
+}
+
+function employeeLabel(e) {
+  const fn = String(e.first_name || "").trim();
+  const ln = String(e.last_name || "").trim();
+  if (ln || fn) return `${ln} ${fn}`.trim();
+  return String(e.display_name || "").trim() || `#${e.id}`;
 }
 
 router.get("/tags", async (req, res) => {
-  // wizard guard: bedrijf + 2 werknemers nodig
-  const company = await get(`SELECT id, name FROM companies ORDER BY id LIMIT 1`);
-  if (!company) {
-    return res.send(
-      layout(
-        "Wizard nodig",
-        `<div class="card">
-          <h1>Eerst wizard doorlopen</h1>
-          <p class="muted">Maak eerst een onderneming en 2 werknemers aan.</p>
-          <a class="btn" href="/wizard/company">Start wizard</a>
-        </div>`
-      )
-    );
-  }
-  const cnt = await get(`SELECT COUNT(*)::int AS n FROM employees WHERE company_id=$1`, [company.id]);
-  if ((cnt?.n || 0) < 2) {
-    return res.send(
-      layout(
-        "Wizard nodig",
-        `<div class="card">
-          <h1>Eerst wizard doorlopen</h1>
-          <p class="muted">Voeg eerst 2 werknemers toe.</p>
-          <a class="btn" href="/wizard/employees">Ga naar werknemers</a>
-        </div>`
-      )
-    );
-  }
+  const company = await getCompany();
+  if (!company) return res.redirect("/wizard/company");
 
-  const baseUrl = getBaseUrl(req);
+  const tag = await getScantag(company.id);
+  const employees = await getEmployees(company.id);
 
-  const tags = await all(
-    `SELECT st.id AS tag_id, st.name AS tag_name, c.name AS company_name
-     FROM scantags st JOIN companies c ON c.id = st.company_id
-     ORDER BY st.id`
-  );
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
 
-  const blocks = await Promise.all(
-    tags.map(async (t) => {
-      const inUrl = `${baseUrl}/t/${t.tag_id}/in`;
-      const outUrl = `${baseUrl}/t/${t.tag_id}/out`;
-
-      const inSvg = await makeQrSvg(inUrl);
-      const outSvg = await makeQrSvg(outUrl);
+  const rows = employees
+    .map((e, idx) => {
+      const code = String(e.scan_code || "").trim();
+      const inUrl = `${baseUrl}/scan/${encodeURIComponent(code)}/in`;
+      const outUrl = `${baseUrl}/scan/${encodeURIComponent(code)}/out`;
 
       return `
-      <div class="card" style="margin-bottom:14px;">
-        <h1 style="margin-bottom:6px;">${escapeHtml(t.company_name)}</h1>
-        <p class="muted" style="margin-top:0;">${escapeHtml(t.tag_name)}</p>
-
-        <div class="row" style="align-items:flex-start;">
-          <div style="flex:1; min-width:260px;">
-            <div class="muted strong">IN</div>
-            <div class="qrbox">${inSvg}</div>
-            <div class="muted" style="margin-top:8px; word-break:break-all;">
-              <span>${escapeHtml(inUrl)}</span>
-            </div>
-          </div>
-
-          <div style="flex:1; min-width:260px;">
-            <div class="muted strong">OUT</div>
-            <div class="qrbox">${outSvg}</div>
-            <div class="muted" style="margin-top:8px; word-break:break-all;">
-              <span>${escapeHtml(outUrl)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="row" style="margin-top:14px;">
-          <a class="btn secondary" href="/admin">Rapport</a>
-          <a class="btn secondary" href="/wizard/company">Wizard</a>
-        </div>
-      </div>`;
+        <tr>
+          <td>${idx + 1}</td>
+          <td><b>${escapeHtml(employeeLabel(e))}</b></td>
+          <td><code>${escapeHtml(code)}</code></td>
+          <td style="display:flex; gap:10px; flex-wrap:wrap;">
+            <a class="demo-btn primary" href="/scan/${encodeURIComponent(code)}/in">IN</a>
+            <a class="demo-btn ghost" href="/scan/${encodeURIComponent(code)}/out">OUT</a>
+          </td>
+          <td style="font-size:12px; opacity:.85;">
+            <div>IN: ${escapeHtml(inUrl)}</div>
+            <div>OUT: ${escapeHtml(outUrl)}</div>
+          </td>
+        </tr>
+      `;
     })
-  );
+    .join("");
 
-  res.send(
-    layout(
-      "Genereer QR’s",
-      `<div class="card" style="margin-bottom:14px;">
-         <h1>3) Genereer QR’s</h1>
-         <p class="muted">De QR’s worden automatisch gegenereerd op basis van de URLs van deze omgeving.</p>
-       </div>
-       ${blocks.join("")}`
+  return res.send(
+    layoutDemo(
+      "SCAN TAGS",
+      `
+        <div class="demo-kicker">PUNCTOO — SCANTAG</div>
+        <h1 class="demo-title">TAGS.</h1>
+
+        <p class="demo-lead">
+          Gebruik onderstaande links om scans te simuleren (IN/OUT).
+        </p>
+
+        <p class="demo-muted">
+          Onderneming: <b>${escapeHtml(company.name)}</b><br>
+          ScanTag: <b>${escapeHtml(tag?.name || "ScanTag")}</b><br>
+          Laatst bijgewerkt: <b>${escapeHtml(DateTime.now().setZone(TZ).toFormat("dd/LL/yyyy HH:mm"))}</b>
+        </p>
+
+        <div class="demo-actions" style="margin-top:12px;">
+          <a class="demo-btn ghost" href="/wizard/reference">TERUG</a>
+          <a class="demo-btn primary" href="/reports">RAPPORTEN</a>
+        </div>
+
+        <div class="demo-tablewrap scroll-x" style="margin-top:14px;">
+          <table class="demo-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Werknemer</th>
+                <th>Activatiecode</th>
+                <th>Scan</th>
+                <th>Links</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `
     )
   );
 });

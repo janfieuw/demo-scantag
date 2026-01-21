@@ -9,6 +9,7 @@ const wizardRouter = require("./routes/wizard");
 const adminRouter = require("./routes/admin");
 const reportsRouter = require("./routes/reports");
 const scanRouter = require("./routes/scan");
+const tagsRouter = require("./routes/tags"); // ✅ NIEUW
 
 function createApp() {
   const app = express();
@@ -24,10 +25,7 @@ function createApp() {
      Static files
      /static → src/styles
   ------------------------ */
-  app.use(
-    "/static",
-    express.static(path.join(__dirname, "styles"))
-  );
+  app.use("/static", express.static(path.join(__dirname, "styles")));
 
   /* ------------------------
      Home
@@ -44,6 +42,7 @@ function createApp() {
   app.use(adminRouter);
   app.use(reportsRouter);
   app.use(scanRouter);
+  app.use(tagsRouter); // ✅ NIEUW: /tags werkt nu
 
   /* ------------------------
      404

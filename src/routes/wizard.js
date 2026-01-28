@@ -728,7 +728,7 @@ router.post("/wizard/reference/kalender/save", async (req, res) => {
 });
 
 /* =========================
-   STEP 4 — go to tag
+   STEP 4 — go to tags
    ========================= */
 router.get("/wizard/qrs", async (req, res) => {
   const company = await getCompany(req);

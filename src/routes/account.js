@@ -88,7 +88,7 @@ router.post("/demo/account", async (req, res) => {
   const cookieOpts = {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production", // ✅ werkt nu correct door trust proxy in app.js
+    secure: process.env.NODE_ENV === "production", // ✅ werkt nuu correct door trust proxy in app.js
     maxAge: 1000 * 60 * 60 * 12, // 12u
   };
 

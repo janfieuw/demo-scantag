@@ -9,10 +9,15 @@ const wizardRouter = require("./routes/wizard");
 const adminRouter = require("./routes/admin");
 const reportsRouter = require("./routes/reports");
 const scanRouter = require("./routes/scan");
-const tagsRouter = require("./routes/tags"); // ✅ NIEUW
+const tagsRouter = require("./routes/tags"); // /tags
 
 function createApp() {
   const app = express();
+
+  // ✅ BELANGRIJK OP RAILWAY (HTTPS achter proxy)
+  // Zonder dit kunnen "secure" cookies verdwijnen / niet terugkomen,
+  // waardoor je wizard telkens opnieuw start.
+  app.set("trust proxy", 1);
 
   /* ------------------------
      Middleware
@@ -42,7 +47,7 @@ function createApp() {
   app.use(adminRouter);
   app.use(reportsRouter);
   app.use(scanRouter);
-  app.use(tagsRouter); // ✅ NIEUW: /tags werkt nu
+  app.use(tagsRouter);
 
   /* ------------------------
      404

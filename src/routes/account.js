@@ -66,37 +66,34 @@ router.post("/demo/account", async (req, res) => {
   const password2 = String(req.body.password2 || "");
 
   if (!isLikelyEmail(email)) {
-    return res.status(400).send(
-      renderAccount({ error: "Vul een geldig e-mailadres in.", email })
-    );
+    return res
+      .status(400)
+      .send(renderAccount({ error: "Vul een geldig e-mailadres in.", email }));
   }
   if (password.length < 6) {
-    return res.status(400).send(
-      renderAccount({ error: "Paswoord moet minstens 6 tekens zijn.", email })
-    );
+    return res
+      .status(400)
+      .send(renderAccount({ error: "Paswoord moet minstens 6 tekens zijn.", email }));
   }
   if (password !== password2) {
-    return res.status(400).send(
-      renderAccount({ error: "Paswoorden komen niet overeen.", email })
-    );
+    return res
+      .status(400)
+      .send(renderAccount({ error: "Paswoorden komen niet overeen.", email }));
   }
 
-  // ✅ nieuw: per login een aparte demo-session
+  // Per login een aparte demo-session id (koppelt bedrijven/werknemers aan deze browser)
   const demoSession = crypto.randomBytes(16).toString("hex");
 
-  res.cookie("demo_account", "1", {
+  // cookie options
+  const cookieOpts = {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 1000 * 60 * 60 * 12,
-  });
+    secure: process.env.NODE_ENV === "production", // ✅ werkt nu correct door trust proxy in app.js
+    maxAge: 1000 * 60 * 60 * 12, // 12u
+  };
 
-  res.cookie("demo_session", demoSession, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 1000 * 60 * 60 * 12,
-  });
+  res.cookie("demo_account", "1", cookieOpts);
+  res.cookie("demo_session", demoSession, cookieOpts);
 
   return res.redirect("/wizard/company");
 });

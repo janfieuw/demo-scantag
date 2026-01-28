@@ -19,10 +19,12 @@ async function getCompany(req) {
   const sid = getDemoSession(req);
   if (!sid) return null;
 
-  return await get(
+  const company = await get(
     `SELECT id, name FROM companies WHERE demo_session_id = $1 ORDER BY id LIMIT 1`,
     [sid]
   );
+
+  return company || null;
 }
 
 /* =========================
@@ -429,7 +431,9 @@ router.get("/wizard/reference/rooster", async (req, res) => {
     [employeeId]
   );
 
-  const map = new Map(existing.map((r) => [Number(r.weekday), Number(r.expected_minutes)]));
+  const map = new Map(
+    existing.map((r) => [Number(r.weekday), Number(r.expected_minutes)])
+  );
 
   const rows = [1, 2, 3, 4, 5, 6, 7]
     .map((dow) => {

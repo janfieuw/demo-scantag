@@ -79,7 +79,9 @@ function renderLogin({ error = "", email = "" } = {}) {
 
       <p class="demo-lead">
         Login: vul je e-mailadres en paswoord in.<br />
-        Heb je nog geen account? <a href="/demo/signup">Maak deze dan eerst aan.</a>
+       Heb je nog geen account? 
+<a href="/demo/signup" class="demo-link">Maak deze dan eerst aan.</a>
+
       </p>
 
       ${errorHtml}

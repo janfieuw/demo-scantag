@@ -66,45 +66,43 @@ async function getEmployeesForReport(companyId, employeeId) {
 }
 
 function toRangeUTC(fromISO, toISO) {
-  const fromTs = DateTime.fromISO(fromISO, { zone: TZ }).startOf("day").toUTC().toISO();
-  const toTs = DateTime.fromISO(toISO, { zone: TZ }).endOf("day").toUTC().toISO();
+  const fromTs = DateTime.fromISO(fromISO, { zone: TZ })
+    .startOf("day")
+    .toUTC()
+    .toISO();
+  const toTs = DateTime.fromISO(toISO, { zone: TZ })
+    .endOf("day")
+    .toUTC()
+    .toISO();
   return { fromTs, toTs };
 }
 
-/**
- * Convert a row end_ts (string/date) to Luxon DateTime UTC, safely.
- */
+/* =========================
+   OPEN vs premature MISSING_OUT
+   ========================= */
+
 function endTsToUtc(endTs) {
   if (!endTs) return null;
-
-  // If it's already a JS Date:
   if (endTs instanceof Date) return DateTime.fromJSDate(endTs).toUTC();
 
-  // If it's a timestamp string:
   const s = String(endTs);
-  // works for ISO strings; if not ISO, still best effort
-  const dt = DateTime.fromISO(s, { zone: "utc" });
-  if (dt.isValid) return dt.toUTC();
+  const iso = DateTime.fromISO(s, { zone: "utc" });
+  if (iso.isValid) return iso.toUTC();
 
-  // last resort:
   const js = new Date(s);
   if (!isNaN(js.getTime())) return DateTime.fromJSDate(js).toUTC();
 
   return null;
 }
 
-/**
- * Fix premature MISSING_OUT:
- * - If end_ts is in the future, then it’s not “missing out” yet; it’s OPEN.
- */
 function normalizeOpenRows(rows, nowUtc) {
-  return rows.map((r) => {
+  return (rows || []).map((r) => {
     if (String(r.status || "").toUpperCase() !== "MISSING_OUT") return r;
 
     const endUtc = endTsToUtc(r.end_ts);
     if (!endUtc) return r;
 
-    // If the auto-close deadline is still in the future -> OPEN
+    // deadline nog niet voorbij => OPEN (nog bezig)
     if (endUtc > nowUtc) {
       return {
         ...r,
@@ -119,7 +117,6 @@ function normalizeOpenRows(rows, nowUtc) {
         },
       };
     }
-
     return r;
   });
 }
@@ -148,6 +145,11 @@ router.get("/reports", async (req, res) => {
     }),
   ].join("");
 
+  const err = String(req.query.err || "").trim();
+  const errHtml = err
+    ? `<div class="demo-alert">❌ ${escapeHtml(err)}</div>`
+    : "";
+
   return res.send(
     layoutDemo(
       "RAPPORTEN",
@@ -160,6 +162,8 @@ router.get("/reports", async (req, res) => {
       </p>
 
       <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
+
+      ${errHtml}
 
       <form class="demo-form" method="POST" action="/reports/generate">
         <label class="demo-label" for="employee_id">Werknemer</label>
@@ -198,39 +202,56 @@ router.get("/reports", async (req, res) => {
   );
 });
 
+// ✅ safety: if someone hits it as GET
+router.get("/reports/generate", (req, res) => res.redirect("/reports"));
+
 /* =========================
    POST /reports/generate
    ========================= */
 router.post("/reports/generate", async (req, res) => {
-  const company = await getCompany(req);
-  if (!company) return res.redirect("/demo/account");
+  try {
+    const company = await getCompany(req);
+    if (!company) return res.redirect("/demo/account");
 
-  const employeeIdRaw = String(req.body.employee_id || "").trim();
-  const employeeId = employeeIdRaw ? Number(employeeIdRaw) : null;
+    const employeeIdRaw = String(req.body.employee_id || "").trim();
+    const employeeId = employeeIdRaw ? Number(employeeIdRaw) : null;
 
-  const from = String(req.body.from || "").slice(0, 10);
-  const to = String(req.body.to || "").slice(0, 10);
+    const from = String(req.body.from || "").slice(0, 10);
+    const to = String(req.body.to || "").slice(0, 10);
 
-  if (!isISODate(from) || !isISODate(to)) {
-    return res.redirect("/reports");
+    if (!isISODate(from) || !isISODate(to)) {
+      return res.redirect("/reports?err=Ongeldige%20datumselectie");
+    }
+
+    const reportId = await generateReport({ companyId: company.id, employeeId, from, to });
+    return res.redirect(`/reports/view/${reportId}`);
+  } catch (err) {
+    console.error("REPORT GENERATE failed:", err);
+    return res.redirect(
+      "/reports?err=" + encodeURIComponent(err?.message || "Onbekende fout bij rapportgeneratie")
+    );
   }
-
-  const reportId = await generateReport({ companyId: company.id, employeeId, from, to });
-  return res.redirect(`/reports/view/${reportId}`);
 });
 
 router.post("/reports/generate-last/:days", async (req, res) => {
-  const company = await getCompany(req);
-  if (!company) return res.redirect("/demo/account");
+  try {
+    const company = await getCompany(req);
+    if (!company) return res.redirect("/demo/account");
 
-  const days = Number(req.params.days);
-  if (![7, 14, 21].includes(days)) return res.redirect("/reports");
+    const days = Number(req.params.days);
+    if (![7, 14, 21].includes(days)) return res.redirect("/reports?err=Ongeldige%20periode");
 
-  const to = DateTime.now().setZone(TZ).toISODate();
-  const from = DateTime.now().setZone(TZ).minus({ days: days - 1 }).toISODate();
+    const to = DateTime.now().setZone(TZ).toISODate();
+    const from = DateTime.now().setZone(TZ).minus({ days: days - 1 }).toISODate();
 
-  const reportId = await generateReport({ companyId: company.id, employeeId: null, from, to });
-  return res.redirect(`/reports/view/${reportId}`);
+    const reportId = await generateReport({ companyId: company.id, employeeId: null, from, to });
+    return res.redirect(`/reports/view/${reportId}`);
+  } catch (err) {
+    console.error("REPORT GENERATE-LAST failed:", err);
+    return res.redirect(
+      "/reports?err=" + encodeURIComponent(err?.message || "Onbekende fout bij rapportgeneratie")
+    );
+  }
 });
 
 async function generateReport({ companyId, employeeId, from, to }) {
@@ -246,7 +267,6 @@ async function generateReport({ companyId, employeeId, from, to }) {
   const employees = await getEmployeesForReport(companyId, employeeId);
   const { fromTs, toTs } = toRangeUTC(from, to);
 
-  // "now" for deciding OPEN vs MISSING_OUT
   const nowUtc = DateTime.now().toUTC();
 
   for (const emp of employees) {
@@ -270,8 +290,6 @@ async function generateReport({ companyId, employeeId, from, to }) {
     }));
 
     const built = buildReportRowsFromScanEvents(normalized, { tz: TZ });
-
-    // ✅ FIX: convert premature MISSING_OUT to OPEN if deadline not reached
     const fixedRows = normalizeOpenRows(built.rows || [], nowUtc);
 
     for (const r of fixedRows) {

@@ -71,6 +71,59 @@ function toRangeUTC(fromISO, toISO) {
   return { fromTs, toTs };
 }
 
+/**
+ * Convert a row end_ts (string/date) to Luxon DateTime UTC, safely.
+ */
+function endTsToUtc(endTs) {
+  if (!endTs) return null;
+
+  // If it's already a JS Date:
+  if (endTs instanceof Date) return DateTime.fromJSDate(endTs).toUTC();
+
+  // If it's a timestamp string:
+  const s = String(endTs);
+  // works for ISO strings; if not ISO, still best effort
+  const dt = DateTime.fromISO(s, { zone: "utc" });
+  if (dt.isValid) return dt.toUTC();
+
+  // last resort:
+  const js = new Date(s);
+  if (!isNaN(js.getTime())) return DateTime.fromJSDate(js).toUTC();
+
+  return null;
+}
+
+/**
+ * Fix premature MISSING_OUT:
+ * - If end_ts is in the future, then it’s not “missing out” yet; it’s OPEN.
+ */
+function normalizeOpenRows(rows, nowUtc) {
+  return rows.map((r) => {
+    if (String(r.status || "").toUpperCase() !== "MISSING_OUT") return r;
+
+    const endUtc = endTsToUtc(r.end_ts);
+    if (!endUtc) return r;
+
+    // If the auto-close deadline is still in the future -> OPEN
+    if (endUtc > nowUtc) {
+      return {
+        ...r,
+        status: "OPEN",
+        end_ts: null,
+        minutes: null,
+        message: "wacht op scan-OUT",
+        meta: {
+          ...(r.meta || {}),
+          deadline_ts: endUtc.toISO(),
+          pending_missing_out: true,
+        },
+      };
+    }
+
+    return r;
+  });
+}
+
 /* =========================
    GET /reports
    ========================= */
@@ -193,6 +246,9 @@ async function generateReport({ companyId, employeeId, from, to }) {
   const employees = await getEmployeesForReport(companyId, employeeId);
   const { fromTs, toTs } = toRangeUTC(from, to);
 
+  // "now" for deciding OPEN vs MISSING_OUT
+  const nowUtc = DateTime.now().toUTC();
+
   for (const emp of employees) {
     const evs = await all(
       `
@@ -213,9 +269,12 @@ async function generateReport({ companyId, employeeId, from, to }) {
       source: "SCAN",
     }));
 
-    const { rows } = buildReportRowsFromScanEvents(normalized, { tz: TZ });
+    const built = buildReportRowsFromScanEvents(normalized, { tz: TZ });
 
-    for (const r of rows) {
+    // ✅ FIX: convert premature MISSING_OUT to OPEN if deadline not reached
+    const fixedRows = normalizeOpenRows(built.rows || [], nowUtc);
+
+    for (const r of fixedRows) {
       await run(
         `
         INSERT INTO report_rows
@@ -251,8 +310,6 @@ router.get("/reports/view/:id", async (req, res) => {
   const report = await get(`SELECT * FROM reports WHERE id=$1`, [reportId]);
   if (!report) return res.redirect("/reports");
 
-  // Extra veiligheid: report filter_employee_id kan alleen binnen company zijn,
-  // maar rows linken via employees anyway.
   const rows = await all(
     `
     SELECT

@@ -71,8 +71,8 @@ function renderAccount({ error = "", email = "" } = {}) {
       <div class="demo-title">ACCOUNT.</div>
 
       <p class="demo-lead">
-        Log in met je e-mailadres en paswoord.
-        Bestaat je account nog niet? Dan maken we het automatisch aan.
+        Kies e-mailadres en paswoord.
+        Jouw account wordt meteen aangemaakt.
       </p>
 
       ${errorHtml}

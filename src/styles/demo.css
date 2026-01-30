@@ -338,3 +338,12 @@
   opacity: 0.45;
   pointer-events: none;
 }
+.demo-link {
+  color: #000;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: rgba(0,0,0,0.05);
+  padding: 2px 4px;
+  border-radius: 4px;
+}

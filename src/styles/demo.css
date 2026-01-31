@@ -1,301 +1,82 @@
-/* =========================
-   DEMO / WIZARD LAYOUT
-   ========================= */
+/* ========== BASIS ========== */
 
-.demo-body {
+html, body {
   margin: 0;
   padding: 0;
+  font-family: Roboto, Arial, sans-serif;
 }
 
-/* Split screen */
-.demo-shell {
-  display: grid;
-  grid-template-columns: 650px 1fr;
-  min-height: 100vh;
-}
-
-/* =========================
-   LEFT — GELE KOLOM
-   ========================= */
-
-.demo-left {
-  background: #fdc500;
-  padding: 32px 28px;
-  min-height: 100vh;
-
-  /* layout-flow zodat logo niet overlapt */
+.demo-page {
   display: flex;
-  flex-direction: column;
+  min-height: 100vh;
 }
 
-.demo-left-content {
+/* ========== GELE STROOK ========== */
+
+.demo-strip {
+  background: #fdc500;
+  padding: 48px 48px 64px 48px;
+  box-sizing: border-box;
+}
+
+/* Standaard: breed genoeg */
+.demo-page:not([class*="demo-page--w"]) .demo-strip {
+  width: 100%;
+  max-width: 1100px;
+}
+
+/* ========== PER PAGINA BREEDTE ========== */
+
+.demo-page--w850 .demo-strip {
+  width: 850px;
+}
+
+.demo-page--w700 .demo-strip {
+  width: 700px;
+}
+
+/* ========== RECHTER ACHTERGROND ========== */
+
+.demo-bg {
   flex: 1;
+  background: #e6e6e6;
 }
 
-.demo-left-inner {
-  max-width: 360px;
-}
-
-.demo-left-footer {
-  padding-top: 18px;
-  padding-bottom: 6px;
-}
-
-.demo-logo {
-  display: block;
-  width: 300px;
-  max-width: 100%;
-  height: auto;
-  pointer-events: none;
-}
-
-/* =========================
-   RIGHT — MUUR + DAME
-   ========================= */
-
-.demo-right {
-  position: relative;
-  overflow: hidden;
-  background-image: url("/static/demo-wall.jpg");
-  background-size: cover;
-  background-position: center center;
-  background-repeat: no-repeat;
-}
-
-.demo-right::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: rgba(255, 255, 255, 0.25);
-  pointer-events: none;
-}
-
-.demo-right-lady {
-  position: absolute;
-  right: 100px;
-  bottom: -1px;
-
-  height: 92vh;
-  max-height: 980px;
-  width: auto;
-
-  z-index: 3;
-  pointer-events: none;
-  user-select: none;
-
-  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.18));
-}
-
-/* =========================
-   RESPONSIVE
-   ========================= */
-
-@media (max-width: 980px) {
-  .demo-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .demo-right {
-    display: none;
-  }
-
-  .demo-left {
-    min-height: 100vh;
-  }
-}
-
-/* =========================
-   TYPO
-   ========================= */
+/* ========== TYPOGRAFIE ========== */
 
 .demo-kicker {
-  font-size: 45px;
+  font-size: 42px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  opacity: 1;
+  opacity: 0.75;
   margin-bottom: 12px;
-  font-weight: 700;
-  color: #ffffff;
 }
 
 .demo-title {
-  font-size: 45px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  opacity: 1;
-  margin-bottom: 12px;
-  font-weight: 700;
-  color: #140d01;
+  font-size: 38px;
+  margin: 0 0 18px 0;
 }
 
 .demo-lead {
-  max-width: 520px;
+  font-size: 15px;
+  max-width: 620px;
 }
 
 .demo-muted {
+  font-size: 13px;
   opacity: 0.85;
 }
 
-.demo-footer {
-  margin-top: 14px;
-  line-height: 1.4;
-}
-
-.demo-brand {
-  font-weight: 700;
-}
-
-.demo-sub {
-  opacity: 0.85;
-  font-size: 13px;
-}
-
-/* =========================
-   FORM LAYOUT
-   ========================= */
-
-.demo-form {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  column-gap: 16px;
-  row-gap: 12px;
-  align-items: center;
-}
-
-.demo-label {
-  margin: 0;
-  justify-self: end;
-}
-
-.demo-input {
-  width: 100%;
-  max-width: 320px;
-  box-sizing: border-box;
-}
-
-.demo-spacer {
-  display: none;
-}
-
-/* ✅ CRUCIAAL: alles wat “breed” is, moet over beide kolommen */
-.demo-form .demo-tablewrap,
-.demo-form .demo-actions,
-.demo-form hr,
-.demo-form .demo-row {
-  grid-column: 1 / -1;
-}
-
-/* =========================
-   TABLES
-   ========================= */
-
-/* Default: GEEN horizontale scroll */
-.demo-tablewrap {
-  overflow-x: hidden;
-}
-
-/* Alleen waar nodig: horizontale scroll */
-.demo-tablewrap.scroll-x {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.demo-table {
-  width: 100%;
-  max-width: 100%;
-  border-collapse: collapse;
-  margin-top: 8px;
-  font-size: 13px;
-  table-layout: auto;
-}
-
-.demo-table th,
-.demo-table td {
-  padding: 10px 10px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
-  text-align: left;
-  white-space: normal;
-}
-
-.demo-badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.demo-badge.ok {
-  background: rgba(0, 0, 0, 0.12);
-}
-
-.demo-badge.warn {
-  background: rgba(0, 0, 0, 0.10);
-}
-
-/* selects */
-.demo-select {
-  height: 36px;
-  border-radius: 6px;
-  border: 1px solid rgba(0, 0, 0, 0.25);
-  padding: 0 10px;
-  font-family: "JetBrains Mono", monospace;
-  box-sizing: border-box;
-}
-
-/* rijen */
-.demo-row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-/* alerts */
-.demo-alert {
-  margin: 10px 0 12px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.10);
-}
-
-/* =========================
-   BUTTON SYSTEM — 1 STYLE OVERAL
-   ========================= */
-
-.demo-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 6px;
-  align-items: center;
-}
+/* ========== BUTTONS ========== */
 
 .demo-btn {
-  appearance: none;
-  border: none;
-  border-radius: 8px;
-
+  display: inline-block;
   padding: 10px 18px;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 14px;
+  border-radius: 8px;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-
   text-decoration: none;
-  line-height: 1;
-
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
-}
-
-.demo-btn:active {
-  transform: translateY(1px);
+  border: none;
+  cursor: pointer;
 }
 
 .demo-btn.primary {
@@ -303,47 +84,31 @@
   color: #fff;
 }
 
-.demo-btn.primary:hover {
-  background: #1a1a1a;
-}
-
 .demo-btn.secondary {
-  background: #d4a900;
+  background: rgba(0,0,0,0.15);
   color: #000;
-}
-
-.demo-btn.secondary:hover {
-  background: #c29a00;
 }
 
 .demo-btn.ghost {
+  border: 2px solid #000;
   background: transparent;
   color: #000;
-  border: 2px solid #000;
 }
 
-.demo-btn.ghost:hover {
-  background: rgba(0, 0, 0, 0.08);
+/* ========== TABELLEN ========== */
+
+.demo-tablewrap {
+  overflow-x: auto;
 }
 
-.demo-btn:disabled,
-.demo-btn[disabled] {
-  opacity: 0.45;
-  cursor: not-allowed;
-  pointer-events: none;
-  transform: none;
+.demo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
 }
 
-.demo-btn.is-disabled {
-  opacity: 0.45;
-  pointer-events: none;
-}
-.demo-link {
-  color: #000;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  background: rgba(0,0,0,0.05);
-  padding: 2px 4px;
-  border-radius: 4px;
+.demo-table th,
+.demo-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(0,0,0,0.15);
 }

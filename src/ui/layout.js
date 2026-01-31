@@ -1,91 +1,28 @@
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+function layoutDemo(title, bodyHtml, options = {}) {
+  const widthClass = options.width
+    ? `demo-page--w${options.width}`
+    : "";
 
-/* =========================
-   STANDAARD LAYOUT
-   ========================= */
-function layout(title, bodyHtml) {
-  return `<!doctype html>
+  return `<!DOCTYPE html>
 <html lang="nl">
 <head>
   <meta charset="utf-8" />
+  <title>${title}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(title)}</title>
-
-  <!-- JetBrains Mono (Google Fonts) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="/static/base.css" />
+  <link rel="stylesheet" href="/styles/demo.css" />
 </head>
 <body>
-  ${bodyHtml}
-</body>
-</html>`;
-}
 
-/* =========================
-   DEMO / WIZARD LAYOUT
-   ========================= */
-function layoutDemo(title, leftHtml) {
-  return `<!doctype html>
-<html lang="nl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(title)}</title>
+  <div class="demo-page ${widthClass}">
+    <div class="demo-strip">
+      ${bodyHtml}
+    </div>
 
-  <!-- JetBrains Mono (Google Fonts) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="/static/base.css" />
-  <link rel="stylesheet" href="/static/demo.css" />
-</head>
-<body class="demo-body">
-  <div class="demo-shell">
-
-    <!-- LINKER KOLOM -->
-    <aside class="demo-left">
-      <div class="demo-left-content">
-        ${leftHtml}
-      </div>
-
-      <div class="demo-left-footer" aria-hidden="true">
-        <img
-          src="/static/logo_punctoo_groot_opgeel.png"
-          class="demo-logo"
-          alt=""
-          loading="eager"
-        />
-      </div>
-    </aside>
-
-    <!-- RECHTER ZIJDE -->
-    <section class="demo-right" aria-hidden="true">
-      <img
-        src="/static/demo-lady.png"
-        class="demo-right-lady"
-        alt=""
-        loading="eager"
-      />
-    </section>
-
+    <div class="demo-bg"></div>
   </div>
+
 </body>
 </html>`;
 }
 
-module.exports = {
-  layout,
-  layoutDemo,
-  escapeHtml,
-};
+module.exports = { layoutDemo };

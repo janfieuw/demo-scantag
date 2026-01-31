@@ -25,14 +25,11 @@ function layout(title, html) {
 
 /**
  * layoutDemo(title, leftHtml, options?)
- * options:
- *  - leftWidthPx: number (bv 850)
- *  - bodyClass: string (bv "page-tags")
+ * - VASTE linkerkolom: 760px (geen per-page width meer)
+ * - options.bodyClass blijft mogelijk (voor kleine page tweaks indien ooit nodig)
  */
 function layoutDemo(title, leftHtml, options = {}) {
-  const leftWidthPx = Number(options.leftWidthPx || 0);
   const bodyClass = String(options.bodyClass || "").trim();
-  const styleVar = leftWidthPx > 0 ? ` style="--left-width:${leftWidthPx}px"` : "";
 
   return `<!doctype html>
 <html lang="nl">
@@ -46,12 +43,12 @@ function layoutDemo(title, leftHtml, options = {}) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-  <!-- ✅ jouw server serveert styles via /static -->
+  <!-- styles via /static (app.js mount) -->
   <link rel="stylesheet" href="/static/demo.css" />
 </head>
 
 <body class="demo-body ${escapeHtml(bodyClass)}">
-  <div class="demo-shell"${styleVar}>
+  <div class="demo-shell">
     <!-- LEFT — GEEL -->
     <div class="demo-left">
       <div class="demo-left-content">
@@ -71,6 +68,7 @@ function layoutDemo(title, leftHtml, options = {}) {
     </div>
   </div>
 
+  <!-- Copy helper (gebruikt door tags: data-copy="...") -->
   <script>
     (function () {
       function copyText(text) {

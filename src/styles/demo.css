@@ -12,7 +12,6 @@
 /* Split screen */
 .demo-shell {
   display: grid;
-  /* default 650px, maar overschrijfbaar via --left-width */
   grid-template-columns: var(--left-width, 650px) 1fr;
   min-height: 100vh;
 }
@@ -25,8 +24,6 @@
   background: #fdc500;
   padding: 32px 28px;
   min-height: 100vh;
-
-  /* layout-flow zodat logo niet overlapt */
   display: flex;
   flex-direction: column;
 }
@@ -35,6 +32,7 @@
   flex: 1;
 }
 
+/* Default is compact (forms). Tags/reports krijgen override hieronder */
 .demo-left-inner {
   max-width: 360px;
 }
@@ -50,6 +48,12 @@
   max-width: 100%;
   height: auto;
   pointer-events: none;
+}
+
+/* ✅ OPTIE 1: Tags + Reports benutten de bredere kolom volledig */
+.page-tags .demo-left-inner,
+.page-reports .demo-left-inner {
+  max-width: 100%;
 }
 
 /* =========================
@@ -104,6 +108,10 @@
 
   .demo-left {
     min-height: 100vh;
+  }
+
+  .demo-left-inner {
+    max-width: 100%;
   }
 }
 
@@ -171,7 +179,7 @@
   display: none;
 }
 
-/* ✅ CRUCIAAL: alles wat “breed” is, moet over beide kolommen */
+/* ✅ alles wat breed is, over beide kolommen */
 .demo-form .demo-tablewrap,
 .demo-form .demo-actions,
 .demo-form hr,
@@ -183,14 +191,12 @@
    TABLES
    ========================= */
 
-/* Default: GEEN horizontale scroll */
 .demo-tablewrap {
-  overflow-x: hidden;
+  overflow-x: hidden; /* default geen horizontale scroll */
 }
 
-/* Alleen waar nodig: horizontale scroll */
 .demo-tablewrap.scroll-x {
-  overflow-x: auto;
+  overflow-x: auto; /* alleen waar nodig */
   -webkit-overflow-scrolling: touch;
 }
 
@@ -221,7 +227,7 @@
   box-sizing: border-box;
 }
 
-/* rijen */
+/* rows */
 .demo-row {
   display: flex;
   gap: 12px;
@@ -237,7 +243,7 @@
 }
 
 /* =========================
-   BUTTON SYSTEM — 1 STYLE OVERAL
+   BUTTON SYSTEM
    ========================= */
 
 .demo-actions {
@@ -315,6 +321,12 @@
 .demo-btn.is-disabled {
   opacity: 0.45;
   pointer-events: none;
+}
+
+/* ✅ compact knopje voor copy */
+.demo-btn.compact {
+  padding: 8px 12px;
+  font-size: 12px;
 }
 
 /* =========================

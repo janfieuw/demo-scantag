@@ -1,4 +1,4 @@
-// app.js
+// src/app.js
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const path = require("path");
@@ -9,14 +9,12 @@ const wizardRouter = require("./routes/wizard");
 const adminRouter = require("./routes/admin");
 const reportsRouter = require("./routes/reports");
 const scanRouter = require("./routes/scan");
-const tagsRouter = require("./routes/tags"); // /tags
+const tagsRouter = require("./routes/tags");
 
 function createApp() {
   const app = express();
 
-  // ✅ BELANGRIJK OP RAILWAY (HTTPS achter proxy)
-  // Zonder dit kunnen "secure" cookies verdwijnen / niet terugkomen,
-  // waardoor je wizard telkens opnieuw start.
+  // Railway / reverse proxy (HTTPS termination)
   app.set("trust proxy", 1);
 
   /* ------------------------
@@ -28,16 +26,17 @@ function createApp() {
 
   /* ------------------------
      Static files
-     /static → src/styles
   ------------------------ */
+  // jouw project gebruikt /static voor styles + images
   app.use("/static", express.static(path.join(__dirname, "styles")));
+
+  // (optioneel) als je ooit /styles/demo.css zou gebruiken:
+  // app.use("/styles", express.static(path.join(__dirname, "styles")));
 
   /* ------------------------
      Home
   ------------------------ */
-  app.get("/", (req, res) => {
-    return res.redirect("/demo/account");
-  });
+  app.get("/", (req, res) => res.redirect("/demo/account"));
 
   /* ------------------------
      Routes
@@ -54,6 +53,15 @@ function createApp() {
   ------------------------ */
   app.use((req, res) => {
     res.status(404).send("Not found");
+  });
+
+  /* ------------------------
+     Error handler (handig voor Railway logs)
+  ------------------------ */
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    console.error("UNHANDLED ERROR:", err);
+    res.status(500).send("Internal Server Error");
   });
 
   return app;

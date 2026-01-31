@@ -11,6 +11,7 @@ const router = express.Router();
    ========================= */
 
 function renderWithDemoLayout(title, leftHtml) {
+  // Veilig: als layoutDemo niet bestaat of anders is, valt dit terug op layout()
   if (typeof layoutDemo === "function") return layoutDemo(title, leftHtml);
   return layout(title, leftHtml);
 }
@@ -24,10 +25,11 @@ function makeDemoSessionId() {
   return crypto.randomBytes(16).toString("hex");
 }
 
-// Password hashing (built-in crypto, no extra deps)
+// Password hashing (built-in crypto, no deps)
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.scryptSync(String(password), salt, 64).toString("hex");
+  // format: scrypt$salt$hash
   return `scrypt$${salt}$${hash}`;
 }
 
@@ -79,9 +81,8 @@ function renderLogin({ error = "", email = "" } = {}) {
 
       <p class="demo-lead">
         Login: vul je e-mailadres en paswoord in.<br />
-       Heb je nog geen account? 
-<a href="/demo/signup" class="demo-link">Maak deze dan eerst aan.</a>
-
+        Heb je nog geen account?
+        <a href="/demo/signup" class="demo-link">Maak deze dan eerst aan.</a>
       </p>
 
       ${errorHtml}
@@ -119,8 +120,9 @@ function renderSignup({ error = "", email = "" } = {}) {
       <div class="demo-title">ACCOUNT AANMAKEN.</div>
 
       <p class="demo-lead">
-        Maak je account aan. Kies een e-mailadres als login en vul je paswoord twee keer in.<br />
-        Heb je al een account? <a href="/demo/login">Ga naar login.</a>
+        Maak een account aan. Kies een e-mailadres als login en vul je paswoord twee keer in.<br />
+        Heb je al een account?
+        <a href="/demo/login" class="demo-link">Ga naar login.</a>
       </p>
 
       ${errorHtml}
@@ -155,7 +157,7 @@ function renderSignup({ error = "", email = "" } = {}) {
    Routes
    ========================= */
 
-// Home of demo-account → naar login
+// Hou bestaande link werkend
 router.get("/demo/account", async (req, res) => {
   return res.redirect("/demo/login");
 });
@@ -220,8 +222,8 @@ router.post("/demo/signup", async (req, res) => {
     return res.status(400).send(renderSignup({ error: "Paswoorden komen niet overeen.", email }));
   }
 
-  const existing = await get(`SELECT id FROM demo_accounts WHERE email=$1 LIMIT 1`, [email]);
-  if (existing) {
+  const exists = await get(`SELECT 1 FROM demo_accounts WHERE email=$1 LIMIT 1`, [email]);
+  if (exists) {
     return res.status(409).send(
       renderSignup({ error: "Dit e-mailadres heeft al een account. Ga naar login.", email })
     );

@@ -1,4 +1,3 @@
-// src/routes/reports.js
 const express = require("express");
 const { DateTime } = require("luxon");
 const { get, all, run } = require("../db");
@@ -30,8 +29,7 @@ function formatEmployeeLabel(e) {
   const ln = String(e?.last_name || "").trim();
   const fn = String(e?.first_name || "").trim();
   if (ln || fn) return `${ln} ${fn}`.trim();
-  const dn = String(e?.display_name || "").trim();
-  return dn || `#${e?.id || "?"}`;
+  return String(e?.display_name || "").trim() || `#${e?.id}`;
 }
 
 async function listEmployees(companyId) {
@@ -57,7 +55,6 @@ async function getEmployeesForReport(companyId, employeeId) {
       SELECT id, first_name, last_name, display_name
       FROM employees
       WHERE company_id=$1 AND id=$2
-      ORDER BY id ASC
       `,
       [companyId, employeeId]
     );
@@ -78,50 +75,6 @@ function toRangeUTC(fromISO, toISO) {
 }
 
 /* =========================
-   OPEN vs premature MISSING_OUT
-   ========================= */
-
-function endTsToUtc(endTs) {
-  if (!endTs) return null;
-  if (endTs instanceof Date) return DateTime.fromJSDate(endTs).toUTC();
-
-  const s = String(endTs);
-  const iso = DateTime.fromISO(s, { zone: "utc" });
-  if (iso.isValid) return iso.toUTC();
-
-  const js = new Date(s);
-  if (!isNaN(js.getTime())) return DateTime.fromJSDate(js).toUTC();
-
-  return null;
-}
-
-function normalizeOpenRows(rows, nowUtc) {
-  return (rows || []).map((r) => {
-    if (String(r.status || "").toUpperCase() !== "MISSING_OUT") return r;
-
-    const endUtc = endTsToUtc(r.end_ts);
-    if (!endUtc) return r;
-
-    // deadline nog niet voorbij => OPEN (nog bezig)
-    if (endUtc > nowUtc) {
-      return {
-        ...r,
-        status: "OPEN",
-        end_ts: null,
-        minutes: null,
-        message: "wacht op scan-OUT",
-        meta: {
-          ...(r.meta || {}),
-          deadline_ts: endUtc.toISO(),
-          pending_missing_out: true,
-        },
-      };
-    }
-    return r;
-  });
-}
-
-/* =========================
    GET /reports
    ========================= */
 router.get("/reports", async (req, res) => {
@@ -131,17 +84,17 @@ router.get("/reports", async (req, res) => {
   const employees = await listEmployees(company.id);
 
   const today = DateTime.now().setZone(TZ).toISODate();
-  const from = isISODate(req.query.from) ? String(req.query.from) : today;
-  const to = isISODate(req.query.to) ? String(req.query.to) : today;
-
+  const from = isISODate(req.query.from) ? req.query.from : today;
+  const to = isISODate(req.query.to) ? req.query.to : today;
   const employeeId = req.query.employee_id ? Number(req.query.employee_id) : null;
 
   const empOptions = [
     `<option value="">Alle werknemers</option>`,
     ...employees.map((e) => {
-      const label = formatEmployeeLabel(e);
       const selected = employeeId === e.id ? "selected" : "";
-      return `<option value="${e.id}" ${selected}>${escapeHtml(label)}</option>`;
+      return `<option value="${e.id}" ${selected}>${escapeHtml(
+        formatEmployeeLabel(e)
+      )}</option>`;
     }),
   ].join("");
 
@@ -150,7 +103,7 @@ router.get("/reports", async (req, res) => {
     ? `<div class="demo-alert">❌ ${escapeHtml(err)}</div>`
     : "";
 
-  return res.send(
+  res.send(
     layoutDemo(
       "RAPPORTEN",
       `
@@ -161,49 +114,49 @@ router.get("/reports", async (req, res) => {
         Er is geen live data. Rapporten bestaan pas nadat je ze genereert.
       </p>
 
-      <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
+      <p class="demo-muted">
+        Onderneming: <b>${escapeHtml(company.name)}</b>
+      </p>
 
       ${errHtml}
 
       <form class="demo-form" method="POST" action="/reports/generate">
-        <label class="demo-label" for="employee_id">Werknemer</label>
-        <select class="demo-select" id="employee_id" name="employee_id">
+        <label class="demo-label">Werknemer</label>
+        <select class="demo-select" name="employee_id">
           ${empOptions}
         </select>
 
-        <label class="demo-label" for="from">Van</label>
-        <input class="demo-input" id="from" name="from" type="date" value="${escapeHtml(from)}" required />
+        <label class="demo-label">Van</label>
+        <input class="demo-input" type="date" name="from" value="${from}" required />
 
-        <label class="demo-label" for="to">Tot</label>
-        <input class="demo-input" id="to" name="to" type="date" value="${escapeHtml(to)}" required />
+        <label class="demo-label">Tot</label>
+        <input class="demo-input" type="date" name="to" value="${to}" required />
 
         <div class="demo-actions">
-          <button class="demo-btn primary" type="submit">GENEREER RAPPORT</button>
+          <button class="demo-btn primary">GENEREER RAPPORT</button>
         </div>
       </form>
 
       <div class="demo-actions" style="margin-top:16px;">
-        <form method="POST" action="/reports/generate-last/7" style="margin:0;">
-          <button class="demo-btn secondary" type="submit">ALLE WERKNEMERS — 7 DAGEN</button>
+        <form method="POST" action="/reports/generate-last/7">
+          <button class="demo-btn secondary">ALLE WERKNEMERS — 7 DAGEN</button>
         </form>
-        <form method="POST" action="/reports/generate-last/14" style="margin:0;">
-          <button class="demo-btn secondary" type="submit">ALLE WERKNEMERS — 14 DAGEN</button>
+        <form method="POST" action="/reports/generate-last/14">
+          <button class="demo-btn secondary">ALLE WERKNEMERS — 14 DAGEN</button>
         </form>
-        <form method="POST" action="/reports/generate-last/21" style="margin:0;">
-          <button class="demo-btn secondary" type="submit">ALLE WERKNEMERS — 21 DAGEN</button>
+        <form method="POST" action="/reports/generate-last/21">
+          <button class="demo-btn secondary">ALLE WERKNEMERS — 21 DAGEN</button>
         </form>
       </div>
 
       <div class="demo-actions" style="margin-top:16px;">
         <a class="demo-btn ghost" href="/tags">TAGS</a>
       </div>
-      `
+      `,
+      { width: 850 }
     )
   );
 });
-
-// ✅ safety: if someone hits it as GET
-router.get("/reports/generate", (req, res) => res.redirect("/reports"));
 
 /* =========================
    POST /reports/generate
@@ -213,111 +166,73 @@ router.post("/reports/generate", async (req, res) => {
     const company = await getCompany(req);
     if (!company) return res.redirect("/demo/account");
 
-    const employeeIdRaw = String(req.body.employee_id || "").trim();
-    const employeeId = employeeIdRaw ? Number(employeeIdRaw) : null;
+    const employeeId = req.body.employee_id
+      ? Number(req.body.employee_id)
+      : null;
 
-    const from = String(req.body.from || "").slice(0, 10);
-    const to = String(req.body.to || "").slice(0, 10);
+    const from = req.body.from;
+    const to = req.body.to;
 
-    if (!isISODate(from) || !isISODate(to)) {
-      return res.redirect("/reports?err=Ongeldige%20datumselectie");
-    }
-
-    const reportId = await generateReport({ companyId: company.id, employeeId, from, to });
-    return res.redirect(`/reports/view/${reportId}`);
-  } catch (err) {
-    console.error("REPORT GENERATE failed:", err);
-    return res.redirect(
-      "/reports?err=" + encodeURIComponent(err?.message || "Onbekende fout bij rapportgeneratie")
-    );
-  }
-});
-
-router.post("/reports/generate-last/:days", async (req, res) => {
-  try {
-    const company = await getCompany(req);
-    if (!company) return res.redirect("/demo/account");
-
-    const days = Number(req.params.days);
-    if (![7, 14, 21].includes(days)) return res.redirect("/reports?err=Ongeldige%20periode");
-
-    const to = DateTime.now().setZone(TZ).toISODate();
-    const from = DateTime.now().setZone(TZ).minus({ days: days - 1 }).toISODate();
-
-    const reportId = await generateReport({ companyId: company.id, employeeId: null, from, to });
-    return res.redirect(`/reports/view/${reportId}`);
-  } catch (err) {
-    console.error("REPORT GENERATE-LAST failed:", err);
-    return res.redirect(
-      "/reports?err=" + encodeURIComponent(err?.message || "Onbekende fout bij rapportgeneratie")
-    );
-  }
-});
-
-async function generateReport({ companyId, employeeId, from, to }) {
-  const report = await get(
-    `
-    INSERT INTO reports (filter_employee_id, filter_from, filter_to, meta)
-    VALUES ($1,$2,$3,$4)
-    RETURNING id
-    `,
-    [employeeId, from, to, JSON.stringify({ tz: TZ })]
-  );
-
-  const employees = await getEmployeesForReport(companyId, employeeId);
-  const { fromTs, toTs } = toRangeUTC(from, to);
-
-  const nowUtc = DateTime.now().toUTC();
-
-  for (const emp of employees) {
-    const evs = await all(
+    const report = await get(
       `
-      SELECT employee_id, direction, "timestamp"
-      FROM scan_events
-      WHERE employee_id=$1
-        AND "timestamp" >= $2
-        AND "timestamp" <= $3
-      ORDER BY "timestamp" ASC
+      INSERT INTO reports (filter_employee_id, filter_from, filter_to)
+      VALUES ($1,$2,$3)
+      RETURNING id
       `,
-      [emp.id, fromTs, toTs]
+      [employeeId, from, to]
     );
 
-    const normalized = evs.map((r) => ({
-      employee_id: r.employee_id,
-      direction: r.direction,
-      timestamp: r.timestamp,
-      source: "SCAN",
-    }));
+    const employees = await getEmployeesForReport(company.id, employeeId);
+    const { fromTs, toTs } = toRangeUTC(from, to);
 
-    const built = buildReportRowsFromScanEvents(normalized, { tz: TZ });
-    const fixedRows = normalizeOpenRows(built.rows || [], nowUtc);
-
-    for (const r of fixedRows) {
-      await run(
+    for (const emp of employees) {
+      const events = await all(
         `
-        INSERT INTO report_rows
-          (report_id, employee_id, day, start_ts, end_ts, minutes, status, message, meta)
-        VALUES
-          ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        SELECT employee_id, direction, "timestamp"
+        FROM scan_events
+        WHERE employee_id=$1
+          AND "timestamp" BETWEEN $2 AND $3
+        ORDER BY "timestamp"
         `,
-        [
-          report.id,
-          r.employee_id,
-          r.day,
-          r.start_ts,
-          r.end_ts,
-          r.minutes,
-          r.status,
-          r.message,
-          JSON.stringify(r.meta || {}),
-        ]
+        [emp.id, fromTs, toTs]
       );
+
+      const built = buildReportRowsFromScanEvents(events, { tz: TZ });
+
+      for (const r of built.rows) {
+        await run(
+          `
+          INSERT INTO report_rows
+            (report_id, employee_id, day, start_ts, end_ts, minutes, status, message, meta)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          `,
+          [
+            report.id,
+            r.employee_id,
+            r.day,
+            r.start_ts,
+            r.end_ts,
+            r.minutes,
+            r.status,
+            r.message,
+            JSON.stringify(r.meta || {}),
+          ]
+        );
+      }
     }
+
+    res.redirect(`/reports/view/${report.id}`);
+  } catch (err) {
+    console.error(err);
+    res.redirect(
+      "/reports?err=" + encodeURIComponent(err.message || "Fout bij genereren")
+    );
   }
+});
 
-  return report.id;
-}
-
+/* =========================
+   GET /reports/view/:id
+   ========================= */
 router.get("/reports/view/:id", async (req, res) => {
   const company = await getCompany(req);
   if (!company) return res.redirect("/demo/account");
@@ -330,56 +245,35 @@ router.get("/reports/view/:id", async (req, res) => {
 
   const rows = await all(
     `
-    SELECT
-      rr.*,
-      e.first_name,
-      e.last_name,
-      e.display_name
+    SELECT rr.*, e.first_name, e.last_name, e.display_name
     FROM report_rows rr
     LEFT JOIN employees e ON e.id = rr.employee_id
-    WHERE rr.report_id = $1
-      AND e.company_id = $2
-    ORDER BY
-      rr.day ASC,
-      e.last_name ASC NULLS LAST,
-      e.first_name ASC NULLS LAST,
-      rr.start_ts ASC NULLS LAST
+    WHERE rr.report_id=$1
+    ORDER BY rr.day, rr.start_ts
     `,
-    [reportId, company.id]
+    [reportId]
   );
 
   const rowsHtml =
     rows.length === 0
-      ? `<tr><td colspan="7">Geen data in dit rapport.</td></tr>`
+      ? `<tr><td colspan="7">Geen data.</td></tr>`
       : rows
           .map((r) => {
-            const label = formatEmployeeLabel(r);
-
-            const start = r.start_ts
-              ? DateTime.fromJSDate(new Date(r.start_ts), { zone: TZ }).toFormat("dd/LL/yyyy HH:mm")
-              : "—";
-
-            const end = r.end_ts
-              ? DateTime.fromJSDate(new Date(r.end_ts), { zone: TZ }).toFormat("dd/LL/yyyy HH:mm")
-              : "—";
-
-            const mins = r.minutes != null ? `${r.minutes} min` : "—";
-
             return `
-              <tr>
-                <td><code>${escapeHtml(r.day)}</code></td>
-                <td>${escapeHtml(label)}</td>
-                <td><b>${escapeHtml(r.status)}</b></td>
-                <td>${escapeHtml(start)}</td>
-                <td>${escapeHtml(end)}</td>
-                <td>${escapeHtml(mins)}</td>
-                <td>${escapeHtml(r.message)}</td>
-              </tr>
-            `;
+            <tr>
+              <td>${escapeHtml(r.day)}</td>
+              <td>${escapeHtml(formatEmployeeLabel(r))}</td>
+              <td><b>${escapeHtml(r.status)}</b></td>
+              <td>${r.start_ts ? DateTime.fromJSDate(r.start_ts).setZone(TZ).toFormat("dd/LL/yyyy HH:mm") : "—"}</td>
+              <td>${r.end_ts ? DateTime.fromJSDate(r.end_ts).setZone(TZ).toFormat("dd/LL/yyyy HH:mm") : "—"}</td>
+              <td>${r.minutes ?? "—"}</td>
+              <td>${escapeHtml(r.message)}</td>
+            </tr>
+          `;
           })
           .join("");
 
-  return res.send(
+  res.send(
     layoutDemo(
       "RAPPORT",
       `
@@ -388,15 +282,15 @@ router.get("/reports/view/:id", async (req, res) => {
 
       <p class="demo-muted">
         Onderneming: <b>${escapeHtml(company.name)}</b><br>
-        Periode: <b>${escapeHtml(report.filter_from)}</b> t.e.m. <b>${escapeHtml(report.filter_to)}</b>
+        Periode: <b>${report.filter_from}</b> t.e.m. <b>${report.filter_to}</b>
       </p>
 
-      <div class="demo-actions" style="margin-top:10px;">
+      <div class="demo-actions">
         <a class="demo-btn ghost" href="/reports">TERUG</a>
         <a class="demo-btn primary" href="/tags">TAGS</a>
       </div>
 
-      <div class="demo-tablewrap scroll-x" style="margin-top:12px;">
+      <div class="demo-tablewrap scroll-x">
         <table class="demo-table">
           <thead>
             <tr>
@@ -412,7 +306,8 @@ router.get("/reports/view/:id", async (req, res) => {
           <tbody>${rowsHtml}</tbody>
         </table>
       </div>
-      `
+      `,
+      { width: 850 }
     )
   );
 });

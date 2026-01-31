@@ -346,3 +346,21 @@
 .demo-link:hover {
   opacity: 0.85;
 }
+/* =========================
+   WIZARD (brede kolom, geen onnodige scroll)
+   ========================= */
+
+/* Wizard pagina's mogen de bredere kolom benutten */
+.page-wizard .demo-left-inner {
+  max-width: 100%;
+}
+
+/* Form in tabelcel mag wrappen zodat de cel niet breder wordt dan de kolom */
+.page-wizard .demo-table form {
+  flex-wrap: wrap;
+}
+
+/* Kleine verbeteringen: select + knop netjes op lijn */
+.page-wizard .demo-select {
+  min-width: 140px;
+}

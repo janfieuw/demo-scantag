@@ -1,4 +1,6 @@
+// src/routes/scantagPdf.js
 const express = require("express");
+const path = require("path");
 const PDFDocument = require("pdfkit");
 const QRCode = require("qrcode");
 const { get } = require("../db");
@@ -25,44 +27,64 @@ router.get("/scantag/:tagId.pdf", async (req, res) => {
   if (!tag) return res.status(404).send("Unknown ScanTag");
 
   const baseUrl = getBaseUrl(req);
+
+  // ✅ per ScanTag: 2 QR's IN/OUT
   const inUrl = `${baseUrl}/t/${tagId}/in`;
   const outUrl = `${baseUrl}/t/${tagId}/out`;
 
-  const inPng = await QRCode.toBuffer(inUrl, { margin: 1, width: 600 });
-  const outPng = await QRCode.toBuffer(outUrl, { margin: 1, width: 600 });
+  // QR images
+  const inPng = await QRCode.toBuffer(inUrl, { margin: 1, width: 900 });
+  const outPng = await QRCode.toBuffer(outUrl, { margin: 1, width: 900 });
 
+  // Template image (plaats dit bestand in src/styles/)
+  const templatePath = path.join(__dirname, "..", "styles", "scantag-template.png");
+
+  // Template pixel size (matcht jouw TEMPLATE_2.png)
+  const TEMPLATE_W = 1772;
+  const TEMPLATE_H = 1182;
+
+  // Detecteerde QR-vakken in template (px) — links & rechts
+  const LEFT_BOX = { x: 258, y: 390, w: 383, h: 383 };
+  const RIGHT_BOX = { x: 1120, y: 390, w: 383, h: 383 };
+
+  // PDF response headers
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="punctoo-scantag-${tagId}.pdf"`);
 
-  const doc = new PDFDocument({ size: "A4", margin: 36 });
+  // A4 landscape, full bleed (geen margin) → template vult de pagina
+  const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 0 });
   doc.pipe(res);
 
-  // Header
-  doc.fontSize(20).text("PUNCTOO ScanTag", { align: "left" });
-  doc.moveDown(0.3);
-  doc.fontSize(12).text(`Bedrijf: ${tag.company_name}`);
-  doc.fontSize(12).text(`Tag: ${tag.tag_name}`);
-  doc.moveDown(1);
+  const pageW = doc.page.width;
+  const pageH = doc.page.height;
 
-  // Layout: 2 kolommen
-  const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  const colWidth = (pageWidth - 24) / 2;
-  const topY = doc.y;
+  // Plaats template als achtergrond (stretched naar pagina)
+  doc.image(templatePath, 0, 0, { width: pageW, height: pageH });
 
-  // IN box
-  doc.roundedRect(doc.page.margins.left, topY, colWidth, 320, 12).stroke();
-  doc.fontSize(16).text("IN", doc.page.margins.left + 12, topY + 12);
-  doc.image(inPng, doc.page.margins.left + 12, topY + 44, { fit: [colWidth - 24, 220], align: "center" });
-  doc.fontSize(8).text(inUrl, doc.page.margins.left + 12, topY + 270, { width: colWidth - 24 });
+  // Schaalfactoren om template-px → pdf-pt te mappen (stretched)
+  const sx = pageW / TEMPLATE_W;
+  const sy = pageH / TEMPLATE_H;
 
-  // OUT box
-  const x2 = doc.page.margins.left + colWidth + 24;
-  doc.roundedRect(x2, topY, colWidth, 320, 12).stroke();
-  doc.fontSize(16).text("OUT", x2 + 12, topY + 12);
-  doc.image(outPng, x2 + 12, topY + 44, { fit: [colWidth - 24, 220], align: "center" });
-  doc.fontSize(8).text(outUrl, x2 + 12, topY + 270, { width: colWidth - 24 });
+  // Padding binnen het vak (zodat zwarte rand van template zichtbaar blijft)
+  const PAD = 16;
 
-  doc.moveDown(20);
+  function placeQr(pngBuf, box) {
+    const x = box.x * sx;
+    const y = box.y * sy;
+    const w = box.w * sx;
+    const h = box.h * sy;
+
+    const innerX = x + PAD * sx;
+    const innerY = y + PAD * sy;
+    const innerW = w - 2 * PAD * sx;
+    const innerH = h - 2 * PAD * sy;
+
+    doc.image(pngBuf, innerX, innerY, { fit: [innerW, innerH], align: "center", valign: "center" });
+  }
+
+  placeQr(inPng, LEFT_BOX);
+  placeQr(outPng, RIGHT_BOX);
+
   doc.end();
 });
 

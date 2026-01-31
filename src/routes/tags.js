@@ -1,6 +1,7 @@
 // src/routes/tags.js
 const express = require("express");
 const { DateTime } = require("luxon");
+const QRCode = require("qrcode");
 const { get, all } = require("../db");
 const { layoutDemo, escapeHtml } = require("../ui/layout");
 
@@ -51,44 +52,40 @@ function employeeLabel(e) {
   return String(e.display_name || "").trim() || `#${e.id}`;
 }
 
+function getBaseUrl(req) {
+  return `${req.protocol}://${req.get("host")}`;
+}
+
 router.get("/tags", async (req, res) => {
   const company = await getCompany(req);
   if (!company) return res.redirect("/demo/account");
 
   const tag = await getScantag(company.id);
+  if (!tag) return res.redirect("/wizard/qrs");
+
   const employees = await getEmployees(company.id);
+  const baseUrl = getBaseUrl(req);
 
-  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  // ✅ per ScanTag endpoints
+  const inUrl = `${baseUrl}/t/${tag.id}/in`;
+  const outUrl = `${baseUrl}/t/${tag.id}/out`;
 
-  const rows =
+  // Echte QR’s als data URL (voor scherm-test)
+  const qrOpts = { margin: 1, width: 220 };
+  const inQrDataUrl = await QRCode.toDataURL(inUrl, qrOpts);
+  const outQrDataUrl = await QRCode.toDataURL(outUrl, qrOpts);
+
+  const empRows =
     employees.length === 0
-      ? `<tr><td colspan="6">Geen werknemers gevonden. Ga terug naar stap 2.</td></tr>`
+      ? `<tr><td colspan="3">Geen werknemers gevonden.</td></tr>`
       : employees
           .map((e, idx) => {
             const code = String(e.scan_code || "").trim();
-            const inUrl = `${baseUrl}/scan/${encodeURIComponent(code)}/in`;
-            const outUrl = `${baseUrl}/scan/${encodeURIComponent(code)}/out`;
-
             return `
               <tr>
                 <td>${idx + 1}</td>
                 <td><b>${escapeHtml(employeeLabel(e))}</b></td>
                 <td><code>${escapeHtml(code)}</code></td>
-
-                <td style="display:flex; gap:10px; flex-wrap:wrap;">
-                  <a class="demo-btn primary" href="/scan/${encodeURIComponent(code)}/in">IN</a>
-                  <a class="demo-btn ghost" href="/scan/${encodeURIComponent(code)}/out">OUT</a>
-                </td>
-
-                <td style="display:flex; gap:10px; flex-wrap:wrap;">
-                  <a class="demo-btn secondary compact" href="#" data-copy="${escapeHtml(inUrl)}">KOPIEER IN</a>
-                  <a class="demo-btn secondary compact" href="#" data-copy="${escapeHtml(outUrl)}">KOPIEER OUT</a>
-                </td>
-
-                <td style="font-size:12px; opacity:.85;">
-                  <div>IN: <code>/scan/${escapeHtml(code)}/in</code></div>
-                  <div>OUT: <code>/scan/${escapeHtml(code)}/out</code></div>
-                </td>
               </tr>
             `;
           })
@@ -102,12 +99,13 @@ router.get("/tags", async (req, res) => {
         <h1 class="demo-title">TAGS.</h1>
 
         <p class="demo-lead">
-          Gebruik onderstaande knoppen om scans te simuleren (IN/OUT). Je kan ook de links kopiëren.
+          Dit zijn de <b>echte ScanTag QR’s</b> (IN/OUT) volgens de vaste layout. 
+          Print via PDF of test door te scannen vanaf je scherm.
         </p>
 
         <p class="demo-muted">
           Onderneming: <b>${escapeHtml(company.name)}</b><br>
-          ScanTag: <b>${escapeHtml(tag?.name || "ScanTag")}</b><br>
+          ScanTag: <b>${escapeHtml(tag.name || "ScanTag")}</b><br>
           Laatst bijgewerkt: <b>${escapeHtml(
             DateTime.now().setZone(TZ).toFormat("dd/LL/yyyy HH:mm")
           )}</b>
@@ -116,25 +114,48 @@ router.get("/tags", async (req, res) => {
         <div class="demo-actions" style="margin-top:12px;">
           <a class="demo-btn ghost" href="/wizard/reference">TERUG</a>
           <a class="demo-btn primary" href="/reports">RAPPORTEN</a>
+          <a class="demo-btn secondary" href="/scantag/${tag.id}.pdf">DOWNLOAD PDF</a>
         </div>
 
         <div class="demo-tablewrap scroll-x" style="margin-top:14px;">
           <table class="demo-table">
             <thead>
               <tr>
+                <th>IN QR</th>
+                <th>OUT QR</th>
+                <th>Links (debug)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><img src="${inQrDataUrl}" alt="IN QR" style="width:220px;height:220px;border:2px solid #000;background:#fff;border-radius:6px;" /></td>
+                <td><img src="${outQrDataUrl}" alt="OUT QR" style="width:220px;height:220px;border:2px solid #000;background:#fff;border-radius:6px;" /></td>
+                <td style="font-size:12px;opacity:.85;">
+                  <div><b>IN</b>: <code>${escapeHtml(inUrl)}</code></div>
+                  <div><b>OUT</b>: <code>${escapeHtml(outUrl)}</code></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <hr style="margin:18px 0;" />
+
+        <p class="demo-muted"><b>Werknemers (codes)</b> — deze codes worden gebruikt na scan (device binding / identificatie).</p>
+
+        <div class="demo-tablewrap scroll-x" style="margin-top:10px;">
+          <table class="demo-table">
+            <thead>
+              <tr>
                 <th>#</th>
                 <th>Werknemer</th>
                 <th>Activatiecode</th>
-                <th>Scan</th>
-                <th>Kopieer</th>
-                <th>Pad</th>
               </tr>
             </thead>
-            <tbody>${rows}</tbody>
+            <tbody>${empRows}</tbody>
           </table>
         </div>
-      `,
-      { leftWidthPx: 850, bodyClass: "page-tags" }
+      `
     )
   );
 });

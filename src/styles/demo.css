@@ -9,10 +9,10 @@
   font-size: 13px;
 }
 
-/* Split screen */
+/* Split screen — VAST: 760px links */
 .demo-shell {
   display: grid;
-  grid-template-columns: var(--left-width, 650px) 1fr;
+  grid-template-columns: 760px 1fr;
   min-height: 100vh;
 }
 
@@ -32,9 +32,9 @@
   flex: 1;
 }
 
-/* Default is compact (forms). Tags/reports krijgen override hieronder */
+/* ✅ Maximale benutting van de gele strook */
 .demo-left-inner {
-  max-width: 360px;
+  max-width: 100%;
 }
 
 .demo-left-footer {
@@ -48,12 +48,6 @@
   max-width: 100%;
   height: auto;
   pointer-events: none;
-}
-
-/* ✅ OPTIE 1: Tags + Reports benutten de bredere kolom volledig */
-.page-tags .demo-left-inner,
-.page-reports .demo-left-inner {
-  max-width: 100%;
 }
 
 /* =========================
@@ -95,6 +89,7 @@
 
 /* =========================
    RESPONSIVE
+   - op smaller scherm verdwijnt rechterkant
    ========================= */
 
 @media (max-width: 980px) {
@@ -108,10 +103,6 @@
 
   .demo-left {
     min-height: 100vh;
-  }
-
-  .demo-left-inner {
-    max-width: 100%;
   }
 }
 
@@ -140,7 +131,7 @@
 }
 
 .demo-lead {
-  max-width: 520px;
+  max-width: 640px;
 }
 
 .demo-muted {
@@ -166,7 +157,7 @@
 
 .demo-input {
   width: 100%;
-  max-width: 320px;
+  max-width: 360px; /* forms blijven mooi compact */
   box-sizing: border-box;
   height: 36px;
   border-radius: 6px;
@@ -179,7 +170,7 @@
   display: none;
 }
 
-/* ✅ alles wat breed is, over beide kolommen */
+/* alles wat breed is over beide kolommen */
 .demo-form .demo-tablewrap,
 .demo-form .demo-actions,
 .demo-form hr,
@@ -192,11 +183,11 @@
    ========================= */
 
 .demo-tablewrap {
-  overflow-x: hidden; /* default geen horizontale scroll */
+  overflow-x: hidden;
 }
 
 .demo-tablewrap.scroll-x {
-  overflow-x: auto; /* alleen waar nodig */
+  overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -217,9 +208,15 @@
   white-space: normal;
 }
 
+/* Form in tabelcel mag wrappen (voor wizard reference) */
+.demo-table form {
+  flex-wrap: wrap;
+}
+
 /* selects */
 .demo-select {
   height: 36px;
+  min-width: 140px;
   border-radius: 6px;
   border: 1px solid rgba(0, 0, 0, 0.25);
   padding: 0 10px;
@@ -323,7 +320,7 @@
   pointer-events: none;
 }
 
-/* ✅ compact knopje voor copy */
+/* compact knopje voor copy */
 .demo-btn.compact {
   padding: 8px 12px;
   font-size: 12px;
@@ -345,22 +342,4 @@
 
 .demo-link:hover {
   opacity: 0.85;
-}
-/* =========================
-   WIZARD (brede kolom, geen onnodige scroll)
-   ========================= */
-
-/* Wizard pagina's mogen de bredere kolom benutten */
-.page-wizard .demo-left-inner {
-  max-width: 100%;
-}
-
-/* Form in tabelcel mag wrappen zodat de cel niet breder wordt dan de kolom */
-.page-wizard .demo-table form {
-  flex-wrap: wrap;
-}
-
-/* Kleine verbeteringen: select + knop netjes op lijn */
-.page-wizard .demo-select {
-  min-width: 140px;
 }

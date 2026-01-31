@@ -2,7 +2,24 @@
 const express = require("express");
 const crypto = require("crypto");
 const { get, run } = require("../db");
-const { layout, layoutDemo, escapeHtml } = require("../ui/layout");
+
+// layout helpers (escapeHtml kan in jouw runtime anders heten => fallback)
+const layoutModule = require("../ui/layout");
+const layout = layoutModule.layout;
+const layoutDemo = layoutModule.layoutDemo;
+
+// ✅ Fallback: als escapeHtml niet bestaat of geen function is, gebruik deze lokale.
+const escapeHtml =
+  typeof layoutModule.escapeHtml === "function"
+    ? layoutModule.escapeHtml
+    : function escapeHtmlFallback(v) {
+        return String(v ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      };
 
 const router = express.Router();
 
@@ -11,9 +28,8 @@ const router = express.Router();
    ========================= */
 
 function renderWithDemoLayout(title, leftHtml, options = {}) {
-  if (typeof layoutDemo === "function") {
-    return layoutDemo(title, leftHtml, options);
-  }
+  // ✅ layoutDemo kan 2 of 3 params hebben; we geven altijd options mee
+  if (typeof layoutDemo === "function") return layoutDemo(title, leftHtml, options);
   return layout(title, leftHtml);
 }
 
@@ -26,24 +42,26 @@ function makeDemoSessionId() {
   return crypto.randomBytes(16).toString("hex");
 }
 
-/* ===== Password hashing ===== */
+/* ===== Password hashing (zonder extra deps) ===== */
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  const hash = crypto.scryptSync(String(password), salt, 64).toString("hex");
   return `scrypt$${salt}$${hash}`;
 }
 
 function verifyPassword(password, stored) {
   try {
-    const [algo, salt, hash] = stored.split("$");
+    const parts = String(stored || "").split("$");
+    if (parts.length !== 3) return false;
+    const [algo, salt, hash] = parts;
     if (algo !== "scrypt") return false;
 
-    const test = crypto.scryptSync(password, salt, 64).toString("hex");
-    return crypto.timingSafeEqual(
-      Buffer.from(test, "hex"),
-      Buffer.from(hash, "hex")
-    );
+    const test = crypto.scryptSync(String(password), salt, 64).toString("hex");
+    const a = Buffer.from(test, "hex");
+    const b = Buffer.from(hash, "hex");
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
   } catch {
     return false;
   }
@@ -69,7 +87,7 @@ function setDemoCookies(res, demoSessionId) {
 
 function renderLogin({ error = "", email = "" } = {}) {
   const errorHtml = error
-    ? `<div class="demo-alert">${escapeHtml(error)}</div>`
+    ? `<div class="demo-alert" role="alert">${escapeHtml(error)}</div>`
     : "";
 
   return renderWithDemoLayout(
@@ -89,23 +107,25 @@ function renderLogin({ error = "", email = "" } = {}) {
       <form class="demo-form" method="POST" action="/demo/login">
         <label class="demo-label">E-mail</label>
         <input class="demo-input" name="email" type="email"
+          placeholder="bv. jan@bedrijf.be"
           value="${escapeHtml(email)}" required />
 
         <label class="demo-label">Paswoord</label>
         <input class="demo-input" name="password" type="password" required />
 
-        <div class="demo-actions">
-          <button class="demo-btn primary">VOLGENDE</button>
+        <div class="demo-actions" style="display:flex; gap:10px;">
+          <button class="demo-btn primary" type="submit">VOLGENDE</button>
           <a class="demo-btn ghost" href="/demo/logout">UITLOGGEN</a>
         </div>
       </form>
-    `
+    `,
+    { width: 850 } // je vroeg om vaste breedte op deze pagina’s? pas aan indien gewenst
   );
 }
 
 function renderSignup({ error = "", email = "" } = {}) {
   const errorHtml = error
-    ? `<div class="demo-alert">${escapeHtml(error)}</div>`
+    ? `<div class="demo-alert" role="alert">${escapeHtml(error)}</div>`
     : "";
 
   return renderWithDemoLayout(
@@ -115,7 +135,7 @@ function renderSignup({ error = "", email = "" } = {}) {
       <div class="demo-title">ACCOUNT AANMAKEN.</div>
 
       <p class="demo-lead">
-        Maak een account aan.<br />
+        Maak een account aan. Kies een e-mailadres als login en vul je paswoord twee keer in.<br />
         Heb je al een account?
         <a href="/demo/login" class="demo-link">Ga naar login.</a>
       </p>
@@ -125,6 +145,7 @@ function renderSignup({ error = "", email = "" } = {}) {
       <form class="demo-form" method="POST" action="/demo/signup">
         <label class="demo-label">E-mail</label>
         <input class="demo-input" name="email" type="email"
+          placeholder="bv. jan@bedrijf.be"
           value="${escapeHtml(email)}" required />
 
         <label class="demo-label">Paswoord</label>
@@ -133,12 +154,13 @@ function renderSignup({ error = "", email = "" } = {}) {
         <label class="demo-label">Herhaal paswoord</label>
         <input class="demo-input" name="password2" type="password" required />
 
-        <div class="demo-actions">
-          <button class="demo-btn primary">ACCOUNT AANMAKEN</button>
+        <div class="demo-actions" style="display:flex; gap:10px;">
+          <button class="demo-btn primary" type="submit">ACCOUNT AANMAKEN</button>
           <a class="demo-btn ghost" href="/demo/login">ANNULEREN</a>
         </div>
       </form>
-    `
+    `,
+    { width: 850 } // idem
   );
 }
 
@@ -146,77 +168,92 @@ function renderSignup({ error = "", email = "" } = {}) {
    Routes
    ========================= */
 
-router.get("/demo/account", (req, res) => {
-  res.redirect("/demo/login");
-});
+router.get("/demo/account", (req, res) => res.redirect("/demo/login"));
 
 router.get("/demo/login", (req, res) => {
-  res.send(renderLogin());
+  return res.send(renderLogin());
 });
 
 router.post("/demo/login", async (req, res) => {
-  const email = String(req.body.email || "").toLowerCase().trim();
+  const email = String(req.body.email || "").trim().toLowerCase();
   const password = String(req.body.password || "");
 
-  const account = await get(
+  if (!isLikelyEmail(email)) {
+    return res.status(400).send(renderLogin({ error: "Vul een geldig e-mailadres in.", email }));
+  }
+  if (password.length < 6) {
+    return res.status(400).send(renderLogin({ error: "Paswoord moet minstens 6 tekens zijn.", email }));
+  }
+
+  const existing = await get(
     `SELECT password_hash, demo_session_id
      FROM demo_accounts
-     WHERE email = $1`,
+     WHERE email=$1
+     LIMIT 1`,
     [email]
   );
 
-  if (!account || !verifyPassword(password, account.password_hash)) {
-    return res.send(renderLogin({
-      error: "Ongeldige login.",
-      email
-    }));
+  if (!existing) {
+    return res.status(404).send(
+      renderLogin({
+        error: "Geen account gevonden voor dit e-mailadres. Maak eerst een account aan.",
+        email,
+      })
+    );
   }
 
-  setDemoCookies(res, account.demo_session_id);
-  res.redirect("/wizard/company");
+  const ok = verifyPassword(password, existing.password_hash);
+  if (!ok) {
+    return res.status(401).send(renderLogin({ error: "Fout paswoord.", email }));
+  }
+
+  setDemoCookies(res, existing.demo_session_id);
+  return res.redirect("/wizard/company");
 });
 
 router.get("/demo/signup", (req, res) => {
-  res.send(renderSignup());
+  return res.send(renderSignup());
 });
 
 router.post("/demo/signup", async (req, res) => {
-  const { email, password, password2 } = req.body;
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const password = String(req.body.password || "");
+  const password2 = String(req.body.password2 || "");
 
+  if (!isLikelyEmail(email)) {
+    return res.status(400).send(renderSignup({ error: "Vul een geldig e-mailadres in.", email }));
+  }
+  if (password.length < 6) {
+    return res.status(400).send(renderSignup({ error: "Paswoord moet minstens 6 tekens zijn.", email }));
+  }
   if (password !== password2) {
-    return res.send(renderSignup({
-      error: "Paswoorden komen niet overeen.",
-      email
-    }));
+    return res.status(400).send(renderSignup({ error: "Paswoorden komen niet overeen.", email }));
   }
 
-  const exists = await get(
-    `SELECT 1 FROM demo_accounts WHERE email=$1`,
-    [email]
-  );
-
+  const exists = await get(`SELECT 1 FROM demo_accounts WHERE email=$1 LIMIT 1`, [email]);
   if (exists) {
-    return res.send(renderSignup({
-      error: "Account bestaat al. Ga naar login.",
-      email
-    }));
+    return res.status(409).send(
+      renderSignup({ error: "Dit e-mailadres heeft al een account. Ga naar login.", email })
+    );
   }
 
   const demoSessionId = makeDemoSessionId();
+  const passwordHash = hashPassword(password);
+
   await run(
     `INSERT INTO demo_accounts (email, password_hash, demo_session_id)
      VALUES ($1,$2,$3)`,
-    [email, hashPassword(password), demoSessionId]
+    [email, passwordHash, demoSessionId]
   );
 
   setDemoCookies(res, demoSessionId);
-  res.redirect("/wizard/company");
+  return res.redirect("/wizard/company");
 });
 
 router.get("/demo/logout", (req, res) => {
   res.clearCookie("demo_account");
   res.clearCookie("demo_session");
-  res.redirect("/demo/login");
+  return res.redirect("/demo/login");
 });
 
 module.exports = router;

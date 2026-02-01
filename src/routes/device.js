@@ -96,15 +96,16 @@ function renderPairPage(tag, direction) {
     bodyHtml: `
       <p class="muted">
         Dit toestel is nog niet gekoppeld aan een werknemer.
-        Vul de werknemer-code in.
+        Vul de activatiecode in.
       </p>
 
       <form method="POST" action="/pair">
         <input type="hidden" name="tagId" value="${tag.tag_id}" />
         <input type="hidden" name="direction" value="${escapeHtml(direction)}" />
 
-        <label class="muted" for="employeeCode">Werknemer-code</label><br/>
-        <input id="employeeCode" name="employeeCode" placeholder="bv. WERKNEMER1" required />
+       <label class="muted" for="employeeCode">Activatiecode werknemer</label><br/>
+<input id="employeeCode" name="employeeCode" placeholder="bv. 981d14c0" required />
+
 
         <div style="height:12px"></div>
         <button class="btn" type="submit">KOPPEL EN SCAN ${dirUp}</button>

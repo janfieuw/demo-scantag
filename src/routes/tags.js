@@ -22,6 +22,13 @@ async function getCompany(req) {
   );
 }
 
+async function getScantag(companyId) {
+  return await get(
+    `SELECT id, name FROM scantags WHERE company_id = $1 ORDER BY id ASC LIMIT 1`,
+    [companyId]
+  );
+}
+
 async function getEmployees(companyId) {
   return await all(
     `
@@ -34,13 +41,6 @@ async function getEmployees(companyId) {
       COALESCE(display_name, '') ASC,
       id ASC
     `,
-    [companyId]
-  );
-}
-
-async function getScantag(companyId) {
-  return await get(
-    `SELECT id, name FROM scantags WHERE company_id = $1 ORDER BY id ASC LIMIT 1`,
     [companyId]
   );
 }
@@ -69,16 +69,15 @@ router.get("/tags", async (req, res) => {
 
   const employees = await getEmployees(company.id);
 
+  // ✅ per ScanTag IN/OUT
   const baseUrl = getBaseUrl(req);
-
-  // ✅ echte ScanTag QR’s (IN/OUT) per ScanTag
-  // Gebruik /t/:tagId/in|out als je device-flow gebruikt.
   const inUrl = `${baseUrl}/t/${tag.id}/in`;
   const outUrl = `${baseUrl}/t/${tag.id}/out`;
 
-  const qrOpts = { margin: 1, width: 300 };
-  const inQr = await QRCode.toDataURL(inUrl, qrOpts);
-  const outQr = await QRCode.toDataURL(outUrl, qrOpts);
+  // QR’s als dataURL (worden als <img> bovenop template geplaatst)
+  const qrOpts = { margin: 1, width: 600 };
+  const inQrDataUrl = await QRCode.toDataURL(inUrl, qrOpts);
+  const outQrDataUrl = await QRCode.toDataURL(outUrl, qrOpts);
 
   const empRows =
     employees.length === 0
@@ -95,18 +94,45 @@ router.get("/tags", async (req, res) => {
           )
           .join("");
 
-  // ✅ Cards zoals screenshot (2 naast elkaar)
-  // We gebruiken inline CSS om exact te sturen zonder demo.css opnieuw te riskeren.
-  const cardsHtml = `
-    <div style="display:flex; gap:26px; flex-wrap:wrap; margin-top:18px;">
-      ${renderScantagCard(inQr, "IN")}
-      ${renderScantagCard(outQr, "OUT")}
-    </div>
+  // Template afmetingen (jouw file is 1772x1182)
+  // QR vakken (pixel coords in template):
+  // Left:  x=258 y=390 w=383 h=383
+  // Right: x=1120 y=390 w=383 h=383
+  //
+  // We plaatsen QR’s via percentages zodat het mee schaalt met de template.
+  const TEMPLATE_W = 1772;
+  const TEMPLATE_H = 1182;
+
+  const leftBox = { x: 258, y: 390, w: 383, h: 383 };
+  const rightBox = { x: 1120, y: 390, w: 383, h: 383 };
+
+  function pctX(px) {
+    return (px / TEMPLATE_W) * 100;
+  }
+  function pctY(px) {
+    return (px / TEMPLATE_H) * 100;
+  }
+
+  // padding binnen het witte vak (in template pixels)
+  const PAD = 16;
+
+  const inStyle = `
+    left:${pctX(leftBox.x + PAD)}%;
+    top:${pctY(leftBox.y + PAD)}%;
+    width:${pctX(leftBox.w - 2 * PAD)}%;
+    height:${pctY(leftBox.h - 2 * PAD)}%;
+  `;
+
+  const outStyle = `
+    left:${pctX(rightBox.x + PAD)}%;
+    top:${pctY(rightBox.y + PAD)}%;
+    width:${pctX(rightBox.w - 2 * PAD)}%;
+    height:${pctY(rightBox.h - 2 * PAD)}%;
   `;
 
   return res.send(
     layoutDemo(
-      "SCAN TAGS",
+      "PUNCTOO — SCANTAG",
       `
         <div class="demo-kicker">PUNCTOO — SCANTAG</div>
         <h1 class="demo-title">TAGS.</h1>
@@ -118,7 +144,7 @@ router.get("/tags", async (req, res) => {
 
         <p class="demo-muted">
           Onderneming: <b>${escapeHtml(company.name)}</b><br>
-          ScanTag: <b>${escapeHtml(tag?.name || "ScanTag")}</b><br>
+          ScanTag: <b>${escapeHtml(tag.name || "ScanTag")}</b><br>
           Laatst bijgewerkt: <b>${escapeHtml(DateTime.now().setZone(TZ).toFormat("dd/LL/yyyy HH:mm"))}</b>
         </p>
 
@@ -128,7 +154,46 @@ router.get("/tags", async (req, res) => {
           <a class="demo-btn secondary" href="/scantag/${tag.id}.pdf">DOWNLOAD PDF</a>
         </div>
 
-        ${cardsHtml}
+        <!-- ✅ TEMPLATE + QR overlay -->
+        <div style="margin-top:16px;">
+          <div style="
+            position: relative;
+            width: 100%;
+            max-width: 704px; /* 760px kolom - padding */
+            aspect-ratio: ${TEMPLATE_W} / ${TEMPLATE_H};
+          ">
+            <img
+              src="/static/scantag-template.png"
+              alt="ScanTag template"
+              style="
+                position:absolute; inset:0;
+                width:100%; height:100%;
+                object-fit:contain;
+                display:block;
+              "
+            />
+
+            <img
+              src="${inQrDataUrl}"
+              alt="IN QR"
+              style="
+                position:absolute;
+                ${inStyle}
+                object-fit:contain;
+              "
+            />
+
+            <img
+              src="${outQrDataUrl}"
+              alt="OUT QR"
+              style="
+                position:absolute;
+                ${outStyle}
+                object-fit:contain;
+              "
+            />
+          </div>
+        </div>
 
         <p class="demo-muted" style="margin-top:18px;">
           <b>Werknemers (codes)</b> — deze codes worden gebruikt na scan (device binding / identificatie).
@@ -146,56 +211,9 @@ router.get("/tags", async (req, res) => {
             <tbody>${empRows}</tbody>
           </table>
         </div>
-      `,
-      { bodyClass: "page-tags" }
+      `
     )
   );
 });
-
-function renderScantagCard(qrDataUrl, label) {
-  // Vormgeving zoals je template: geel buiten, grijs vlak met inkeping, QR in wit vak met zwarte rand
-  // Verticale Punctoo tekst (tussen IN/OUT) zit in je template normaal, maar op web tonen we die per card subtiel.
-  const isIn = label === "IN";
-
-  return `
-    <div style="
-      width: 300px;
-      height: 360px;
-      background: #cfcfcf;
-      border-radius: 44px;
-      position: relative;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      overflow:hidden;
-    ">
-      <!-- Inkeping -->
-      <div style="
-        position:absolute;
-        ${isIn ? "left:-2px" : "right:-2px"};
-        top: 140px;
-        width: 0;
-        height: 0;
-        border-top: 34px solid transparent;
-        border-bottom: 34px solid transparent;
-        ${isIn ? "border-left: 34px solid #fdc500;" : "border-right: 34px solid #fdc500;"}
-      "></div>
-
-      <!-- QR frame -->
-      <div style="
-        width: 210px;
-        height: 210px;
-        background:#fff;
-        border: 4px solid #000;
-        box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
-        display:flex;
-        align-items:center;
-        justify-content:center;
-      ">
-        <img src="${qrDataUrl}" alt="${label} QR" style="width:100%; height:100%; object-fit:contain;" />
-      </div>
-    </div>
-  `;
-}
 
 module.exports = router;

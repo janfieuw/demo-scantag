@@ -114,7 +114,7 @@ router.get("/wizard/company", async (req, res) => {
       layoutDemo(
         "DEMO — STAP 1",
         `
-          <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
+          <div class="demo-kicker">DEMO UITTESTEN <BR> IN 3 STAPPEN</div>
           <h1 class="demo-title">STAP 1.</h1>
           <p class="demo-lead">Vul de naam van jouw onderneming in.</p>
 
@@ -132,7 +132,7 @@ router.get("/wizard/company", async (req, res) => {
     layoutDemo(
       "DEMO — STAP 1",
       `
-        <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
+        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 3 STAPPEN</div>
         <h1 class="demo-title">STAP 1.</h1>
         <p class="demo-lead">Vul de naam van jouw onderneming in.</p>
 
@@ -196,7 +196,7 @@ router.get("/wizard/employees", async (req, res) => {
     layoutDemo(
       "DEMO — STAP 2",
       `
-        <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
+        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 3 STAPPEN</div>
         <h1 class="demo-title">STAP 2.</h1>
 
         <p class="demo-lead">
@@ -457,7 +457,7 @@ router.get("/wizard/reference/rooster", async (req, res) => {
     layoutDemo(
       "DEMO — PATROON",
       `
-        <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
+        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 3 STAPPEN</div>
         <h1 class="demo-title">PATROON.</h1>
 
         <p class="demo-muted">Werknemer: <b>${escapeHtml(employeeLabel(emp))}</b></p>
@@ -607,7 +607,7 @@ router.get("/wizard/reference/kalender", async (req, res) => {
     layoutDemo(
       "DEMO — KALENDER",
       `
-        <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
+        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 3 STAPPEN</div>
         <h1 class="demo-title">KALENDER.</h1>
 
         <p class="demo-muted">Werknemer: <b>${escapeHtml(employeeLabel(emp))}</b></p>

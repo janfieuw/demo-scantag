@@ -37,10 +37,17 @@
   max-width: 100%;
 }
 
-.demo-left-footer {
-  padding-top: 18px;
-  padding-bottom: 6px;
+.demo-left {
+  position: relative;
 }
+
+.demo-left-footer {
+  position: absolute;
+  left: 28px;
+  bottom: 18px;
+  padding: 0;
+}
+
 
 .demo-logo {
   display: block;

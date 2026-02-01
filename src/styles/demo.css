@@ -158,7 +158,7 @@
 }
 .demo-formtwee {
   display: grid;
-  grid-template-columns: 100px 1fr;
+  grid-template-columns: 130px 1fr;
   column-gap: 16px;
   row-gap: 12px;
   align-items: center;

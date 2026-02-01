@@ -3,19 +3,16 @@ const express = require("express");
 const { DateTime } = require("luxon");
 const { get, run } = require("../db");
 const { COOKIE_NAME } = require("../config");
-const { layoutDemo, escapeHtml } = require("../ui/layout");
+const { escapeHtml } = require("../ui/layout");
 
 const router = express.Router();
 
 const TZ = "Europe/Brussels";
 const COOLDOWN_MINUTES = 5;
 
-// 0 = geen redirect (blijft op scherm)
-// bv 1200 = 1.2s en dan terug naar /t/:tagId (kies actie)
 const AUTO_REDIRECT_MS_OK = 1200;
 const AUTO_REDIRECT_MS_NOTOK = 1500;
 
-// Cache of scan_events extra kolommen bestaan (ignored/source)
 let scanEventsHasIgnoredCols = null;
 
 async function detectScanEventsColumns() {
@@ -64,14 +61,14 @@ async function resolveTag(tagId) {
 
 async function getBoundEmployee(companyId, token) {
   if (!token) return null;
+
   return await get(
     `
     SELECT
       db.employee_id,
       e.first_name,
       e.last_name,
-      e.display_name,
-      e.scan_code
+      e.display_name
     FROM device_bindings db
     JOIN employees e ON e.id = db.employee_id
     WHERE db.company_id = $1
@@ -154,10 +151,6 @@ async function insertScanEvent({
   );
 }
 
-/* =========================
-   UI helpers
-   ========================= */
-
 function renderImageOnly({ ok, redirectUrl, redirectMs }) {
   const img = ok ? "/static/scan-ok.png" : "/static/scan-notok.png";
   const sec = redirectMs > 0 ? Math.round(redirectMs / 1000) : 0;
@@ -187,119 +180,50 @@ function renderImageOnly({ ok, redirectUrl, redirectMs }) {
 </html>`;
 }
 
-function renderChoosePage(tag) {
-  return layoutDemo(
-    `ScanTag — ${tag.company_name}`,
-    `
-      <div class="demo-kicker">${escapeHtml(tag.company_name)}</div>
-      <h1 class="demo-title">SCAN.</h1>
-
-      <p class="demo-muted">ScanTag: <b>${escapeHtml(tag.tag_name || "ScanTag")}</b></p>
-
-      <div class="demo-actions" style="margin-top:16px;">
-        <a class="demo-btn primary" href="/t/${tag.tag_id}/in">IN</a>
-        <a class="demo-btn ghost" href="/t/${tag.tag_id}/out">OUT</a>
-      </div>
-    `
-  );
-}
-
 function renderPairPage(tag, direction) {
-  // ✅ Klassieke manier: absolute URL via /static
-  const LOGO_SRC = "/static/logo_punctoo_groot_opgeel.png";
+  // ✅ EXACT mockup: logo boven, 2 regels tekst, input, knop onder elkaar
+  return `<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Punctoo – Koppelen</title>
+  <style>
+    html, body { margin:0; padding:0; height:100%; background:#FDC500; font-family: Arial, Helvetica, sans-serif; }
+    .wrap { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; text-align:center; padding:26px 18px; box-sizing:border-box; }
+    .logo { width:240px; max-width:80vw; height:auto; margin-top:10px; margin-bottom:22px; }
+    .title { font-size:14px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px; }
+    .subtitle { font-size:14px; margin-bottom:16px; }
+    .input { width:240px; max-width:86vw; padding:12px; font-size:16px; border-radius:8px; border: 2px solid #000; box-sizing:border-box; text-align:center; }
+    .btn { margin-top:14px; width:240px; max-width:86vw; padding:12px; border-radius:10px; border:none; background:#000; color:#fff; font-weight:700; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <img class="logo" src="/static/logo_punctoo_groot_opgeel.png" alt="Punctoo" />
 
-  return layoutDemo(
-    `Koppelen — ${tag.company_name}`,
-    `
-      <div style="
-        min-height: 70vh;
-        display:flex;
-        flex-direction:column;
-        align-items:center;
-        justify-content:center;
-        text-align:center;
-      ">
-        <img
-          src="${LOGO_SRC}"
-          alt="Punctoo"
-          style="width:240px; max-width:80vw; height:auto; margin-bottom:18px;"
-        />
+    <div class="title">KOPPELEN SMARTPHONE</div>
+    <div class="subtitle">Geef éénmalig ID:</div>
 
-        <div style="font-size:14px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px;">
-          KOPPELEN SMARTPHONE
-        </div>
+    <form method="POST" action="/pair">
+      <input type="hidden" name="tagId" value="${tag.tag_id}" />
+      <input type="hidden" name="direction" value="${escapeHtml(direction)}" />
 
-        <div style="font-size:14px; margin-bottom:14px;">
-          Geef éénmalig ID:
-        </div>
-
-        <form method="POST" action="/pair"
-              style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%;">
-          <input type="hidden" name="tagId" value="${tag.tag_id}" />
-          <input type="hidden" name="direction" value="${escapeHtml(direction)}" />
-
-          <input
-            class="demo-input"
-            name="employeeCode"
-            placeholder="bv. 981d14c0"
-            required
-            autofocus
-            style="max-width:260px; text-align:center;"
-          />
-
-          <button class="demo-btn primary" type="submit" style="min-width:180px;">
-            BEVESTIG
-          </button>
-        </form>
-      </div>
-    `
-  );
+      <input class="input" name="employeeCode" placeholder="bv. 981d14c0" required autofocus />
+      <button class="btn" type="submit">BEVESTIG</button>
+    </form>
+  </div>
+</body>
+</html>`;
 }
 
-/* =========================
-   Routes
-   ========================= */
-
-router.get("/t/:tagId", async (req, res) => {
-  const tagId = Number(req.params.tagId);
-  const tag = await resolveTag(tagId);
-
-  if (!tag) {
-    return res
-      .status(404)
-      .send(
-        renderImageOnly({
-          ok: false,
-          redirectUrl: "/",
-          redirectMs: AUTO_REDIRECT_MS_NOTOK,
-        })
-      );
-  }
-
-  return res.send(renderChoosePage(tag));
-});
-
-// IN/OUT (crash-proof: geen regex in pad)
 router.get("/t/:tagId/:direction", async (req, res) => {
   const tagId = Number(req.params.tagId);
   const direction = String(req.params.direction || "").toLowerCase();
-
-  if (direction !== "in" && direction !== "out") {
-    return res.status(404).send("Not found");
-  }
+  if (direction !== "in" && direction !== "out") return res.status(404).send("Not found");
 
   const tag = await resolveTag(tagId);
-  if (!tag) {
-    return res
-      .status(404)
-      .send(
-        renderImageOnly({
-          ok: false,
-          redirectUrl: "/",
-          redirectMs: AUTO_REDIRECT_MS_NOTOK,
-        })
-      );
-  }
+  if (!tag) return res.status(404).send("Not found");
 
   const token = req.cookies[COOKIE_NAME];
   const bound = await getBoundEmployee(tag.company_id, token);
@@ -329,11 +253,10 @@ router.get("/t/:tagId/:direction", async (req, res) => {
           ignored_reason: "COOLDOWN_5_MIN",
         });
       }
-
       return res.send(
         renderImageOnly({
           ok: false,
-          redirectUrl: `/t/${tag.tag_id}`,
+          redirectUrl: `/t/${tag.tag_id}/in`,
           redirectMs: AUTO_REDIRECT_MS_NOTOK,
         })
       );
@@ -353,7 +276,7 @@ router.get("/t/:tagId/:direction", async (req, res) => {
   return res.send(
     renderImageOnly({
       ok: true,
-      redirectUrl: `/t/${tag.tag_id}`,
+      redirectUrl: `/t/${tag.tag_id}/in`,
       redirectMs: AUTO_REDIRECT_MS_OK,
     })
   );

@@ -11,7 +11,7 @@ const reportsRouter = require("./routes/reports");
 const scanRouter = require("./routes/scan");
 const tagsRouter = require("./routes/tags");
 
-// ✅ nieuw nodig voor echte ScanTag flow + PDF
+// ScanTag flow + PDF
 const deviceRouter = require("./routes/device");
 const pairRouter = require("./routes/pair");
 const scantagPdfRouter = require("./routes/scantagPdf");
@@ -19,19 +19,20 @@ const scantagPdfRouter = require("./routes/scantagPdf");
 function createApp() {
   const app = express();
 
-  // Railway / reverse proxy (HTTPS termination)
   app.set("trust proxy", 1);
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
 
-  // Static files
+  // ✅ Static files
+  // 1) src/styles → /static
   app.use("/static", express.static(path.join(__dirname, "styles")));
+  // 2) src/static → /static  (logo’s, png’s, extra assets)
+  app.use("/static", express.static(path.join(__dirname, "static")));
 
   app.get("/", (req, res) => res.redirect("/demo/account"));
 
-  // Routes
   app.use(accountRouter);
   app.use(wizardRouter);
   app.use(adminRouter);
@@ -39,14 +40,11 @@ function createApp() {
   app.use(scanRouter);
   app.use(tagsRouter);
 
-  // ✅ ScanTag “echte QR” routes
-  app.use(deviceRouter);      // /t/:tagId(/in|out)
-  app.use(pairRouter);        // /pair
-  app.use(scantagPdfRouter);  // /scantag/:tagId.pdf
+  app.use(deviceRouter);
+  app.use(pairRouter);
+  app.use(scantagPdfRouter);
 
-  app.use((req, res) => {
-    res.status(404).send("Not found");
-  });
+  app.use((req, res) => res.status(404).send("Not found"));
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {

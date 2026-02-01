@@ -209,7 +209,7 @@ router.get("/wizard/employees", async (req, res) => {
         ${
           canAdd
             ? `
-          <form class="demo-form" method="POST" action="/wizard/employees/add" style="margin-top:16px;">
+          <form class="demo-formtwee" method="POST" action="/wizard/employees/add" style="margin-top:16px;">
             <label class="demo-label" for="last_name">Familienaam</label>
             <input class="demo-input" id="last_name" name="last_name" required />
 

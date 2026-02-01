@@ -351,8 +351,8 @@ router.get("/wizard/reference", async (req, res) => {
     layoutDemo(
       "DEMO — STAP 3",
       `
-        <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
-        <h1 class="demo-title">STAP 3.</h1>
+        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 3 STAPPEN</div>
+        <h1 class="demo-title">(BELANGRIJKE) STAP 3.</h1>
 
         <p class="demo-lead">
           Kies per werknemer <b>Rooster</b> of <b>Kalender</b> en klik daarna op <b>Vul aan</b>.

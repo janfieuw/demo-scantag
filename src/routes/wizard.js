@@ -201,6 +201,7 @@ router.get("/wizard/employees", async (req, res) => {
 
         <p class="demo-lead">
           Voeg twee werknemers toe. Na toevoegen wordt automatisch een activatiecode gegenereerd.
+          <br>De codes vind je later ook nog terug.
         </p>
 
         <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>

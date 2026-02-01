@@ -1,8 +1,9 @@
+// src/routes/pair.js
 const express = require("express");
 const crypto = require("crypto");
 const { get, run } = require("../db");
 const { COOKIE_NAME, IS_PROD } = require("../config");
-const { layout, escapeHtml } = require("../ui/layout");
+const { layout } = require("../ui/layout");
 const { cardHeader } = require("../ui/components");
 
 const router = express.Router();
@@ -24,9 +25,15 @@ async function resolveTag(tagId) {
 router.post("/pair", async (req, res) => {
   const tagId = Number(req.body.tagId);
   const employeeCode = String(req.body.employeeCode || "").trim().toUpperCase();
+  const directionRaw = String(req.body.direction || "in").trim().toLowerCase();
+  const direction = directionRaw === "out" ? "out" : "in"; // only in/out
 
   const tag = await resolveTag(tagId);
-  if (!tag) return res.status(404).send(layout("Onbekend", `<div class="card"><h1>Onbekende tag</h1></div>`));
+  if (!tag) {
+    return res
+      .status(404)
+      .send(layout("Onbekend", `<div class="card"><h1>Onbekende tag</h1></div>`));
+  }
 
   const emp = await get(
     `SELECT id, code FROM employees WHERE company_id = $1 AND UPPER(code) = UPPER($2)`,
@@ -38,12 +45,12 @@ router.post("/pair", async (req, res) => {
       layout(
         "Onbekende ID",
         `<div class="card">
-          ${cardHeader(tag.company_name, "IN")}
+          ${cardHeader(tag.company_name, direction.toUpperCase())}
           <div style="height:10px"></div>
           <div class="big">❌ Onbekende ID</div>
           <p class="muted">ID bestaat niet. Probeer opnieuw.</p>
           <div class="row" style="margin-top:14px;">
-            <a class="btn" href="/t/${tag.tag_id}/in">Opnieuw</a>
+            <a class="btn" href="/t/${tag.tag_id}/${direction}">Opnieuw</a>
           </div>
         </div>`
       )
@@ -69,8 +76,8 @@ router.post("/pair", async (req, res) => {
     maxAge: 1000 * 60 * 60 * 24 * 365,
   });
 
-  // Redirect to IN scan endpoint to log the IN (and show result)
-  res.redirect(`/t/${tag.tag_id}/in`);
+  // ✅ ga verder naar IN of OUT die de gebruiker wilde
+  res.redirect(`/t/${tag.tag_id}/${direction}`);
 });
 
 module.exports = router;

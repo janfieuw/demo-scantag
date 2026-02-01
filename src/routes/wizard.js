@@ -114,8 +114,8 @@ router.get("/wizard/company", async (req, res) => {
       layoutDemo(
         "DEMO — STAP 1",
         `
-          <div class="demo-kicker">DEMO UITTESTEN <BR> IN 3 STAPPEN</div>
-          <h1 class="demo-title">STAP 1.</h1>
+          <div class="demo-kicker">DEMO UITTESTEN <BR> IN 5 STAPPEN</div>
+          <h1 class="demo-title">STAP2: JOUW ONDERNEMING.</h1>
           <p class="demo-lead">Vul de naam van jouw onderneming in.</p>
 
           <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
@@ -132,8 +132,8 @@ router.get("/wizard/company", async (req, res) => {
     layoutDemo(
       "DEMO — STAP 1",
       `
-        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 3 STAPPEN</div>
-        <h1 class="demo-title">STAP 1.</h1>
+        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 5 STAPPEN</div>
+        <h1 class="demo-title">STAP2: JOUW ONDERNEMING.</h1>
         <p class="demo-lead">Vul de naam van jouw onderneming in.</p>
 
         <form class="demo-form" method="POST" action="/wizard/company">
@@ -196,8 +196,8 @@ router.get("/wizard/employees", async (req, res) => {
     layoutDemo(
       "DEMO — STAP 2",
       `
-        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 3 STAPPEN</div>
-        <h1 class="demo-title">STAP 2.</h1>
+        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 5 STAPPEN</div>
+        <h1 class="demo-title">STAP3: WERKNEMERS.</h1>
 
         <p class="demo-lead">
           Voeg twee werknemers toe. <br>Na toevoegen wordt automatisch een activatiecode gegenereerd.
@@ -351,8 +351,8 @@ router.get("/wizard/reference", async (req, res) => {
     layoutDemo(
       "DEMO — STAP 3",
       `
-        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 3 STAPPEN</div>
-        <h1 class="demo-title">(BELANGRIJKE) STAP 3.</h1>
+        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 5 STAPPEN</div>
+        <h1 class="demo-title">(BELANGRIJKE) STAP3: REFERENTIETIJDEN.</h1>
 
         <p class="demo-lead">
           Kies per werknemer <b>Rooster</b> of <b>Kalender</b> en klik daarna op <b>Vul aan</b>.

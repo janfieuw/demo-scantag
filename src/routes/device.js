@@ -219,7 +219,7 @@ function renderPairPage(tag, direction) {
         text-align:center;
       ">
         <img
-          src="/styles/logo-mypunctoo.png"
+          src="/static/logo-mypunctoo.png"
           alt="Punctoo"
           style="width:240px; max-width:80vw; height:auto; margin-bottom:18px;"
         />

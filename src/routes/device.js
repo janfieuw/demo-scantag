@@ -239,8 +239,8 @@ function renderPairPage(tag, direction) {
 <body>
   <div class="wrap">
     <img class="logo" src="/static/logo_punctoo_groot_opgeel.png" alt="Punctoo" />
-    <div class="title">KOPPELEN SMARTPHONE</div>
-    <div class="subtitle">Geef éénmalig ID:</div>
+    <div class="title">SCAN GESLAAGD !</div>
+    
 
     <form method="POST" action="/pair">
       <input type="hidden" name="tagId" value="${tag.tag_id}" />

@@ -191,6 +191,7 @@ router.get("/tags", async (req, res) => {
         </div>
 
         <p class="demo-muted" style="margin-top:18px;">
+        <h1 class="demo-title">Stap 5: SMARTPHONE KOPPELEN.</h1>
           <b>Gebruik onderstaande codes bij de eerste scan-IN.</b>
         </p>
 

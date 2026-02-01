@@ -136,7 +136,7 @@ async function getBoundEmployee(companyId, token) {
   );
 }
 
-function employeeLabel(emp) {
+function boundEmployeeLabel(emp) {
   const fn = String(emp.first_name || "").trim();
   const ln = String(emp.last_name || "").trim();
   if (ln || fn) return `${ln} ${fn}`.trim();
@@ -249,42 +249,44 @@ function renderScanResult(tag, direction, empLabel, ts, ignored, reason) {
    Routes
    ========================= */
 
-// QR entry point (optioneel)
 router.get("/t/:tagId", async (req, res) => {
   const tagId = Number(req.params.tagId);
   const tag = await resolveTag(tagId);
-  if (!tag) return res.status(404).send(layout("Onbekend", `<div class="card"><h1>Onbekende tag</h1></div>`));
+  if (!tag) {
+    return res.status(404).send(layout("Onbekend", `<div class="card"><h1>Onbekende tag</h1></div>`));
+  }
   return res.send(renderChoosePage(tag));
 });
 
-// IN/OUT
-router.get("/t/:tagId/:direction(in|out)", async (req, res) => {
+// ✅ geen (in|out) regex in pad: valideren in code
+router.get("/t/:tagId/:direction", async (req, res) => {
   const tagId = Number(req.params.tagId);
   const direction = String(req.params.direction || "").toLowerCase(); // in/out
-  const dirDb = direction.toUpperCase(); // IN/OUT
+  if (direction !== "in" && direction !== "out") {
+    return res.status(404).send("Not found");
+  }
+  const dirDb = direction.toUpperCase();
 
   const tag = await resolveTag(tagId);
-  if (!tag) return res.status(404).send(layout("Onbekend", `<div class="card"><h1>Onbekende tag</h1></div>`));
+  if (!tag) {
+    return res.status(404).send(layout("Onbekend", `<div class="card"><h1>Onbekende tag</h1></div>`));
+  }
 
-  // Check binding cookie
   const token = req.cookies[COOKIE_NAME];
   const bound = await getBoundEmployee(tag.company_id, token);
 
   if (!bound) {
-    // Niet gekoppeld → toon pairing UI (POST /pair)
     return res.send(renderPairPage(tag, direction));
   }
 
   const ts = nowTs();
 
-  // Cooldown check
   const last = await getLastNonIgnoredEvent(bound.employee_id);
   if (last && last.timestamp) {
     const lastTs = new Date(last.timestamp);
     const diffMin = (ts - lastTs) / 60000;
 
     if (diffMin >= 0 && diffMin < COOLDOWN_MINUTES) {
-      // genegeerd
       const cols = await detectScanEventsColumns();
       if (cols.has_ignored && cols.has_ignored_reason) {
         await insertScanEvent({
@@ -298,19 +300,11 @@ router.get("/t/:tagId/:direction(in|out)", async (req, res) => {
         });
       }
       return res.send(
-        renderScanResult(
-          tag,
-          direction,
-          employeeLabel(bound),
-          ts,
-          true,
-          "COOLDOWN_5_MIN"
-        )
+        renderScanResult(tag, direction, boundEmployeeLabel(bound), ts, true, "COOLDOWN_5_MIN")
       );
     }
   }
 
-  // Log scan
   await insertScanEvent({
     companyId: tag.company_id,
     employeeId: bound.employee_id,
@@ -321,7 +315,7 @@ router.get("/t/:tagId/:direction(in|out)", async (req, res) => {
     ignored_reason: null,
   });
 
-  return res.send(renderScanResult(tag, direction, employeeLabel(bound), ts, false, null));
+  return res.send(renderScanResult(tag, direction, boundEmployeeLabel(bound), ts, false, null));
 });
 
 module.exports = router;

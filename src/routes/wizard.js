@@ -200,7 +200,7 @@ router.get("/wizard/employees", async (req, res) => {
         <h1 class="demo-title">STAP 2.</h1>
 
         <p class="demo-lead">
-          Voeg twee werknemers toe. Na toevoegen wordt automatisch een activatiecode gegenereerd.
+          Voeg twee werknemers toe. <br>Na toevoegen wordt automatisch een activatiecode gegenereerd.
           <br>De codes vind je later ook nog terug.
         </p>
 

@@ -104,7 +104,7 @@ function renderLogin({ error = "", email = "" } = {}) {
 
       ${errorHtml}
 
-      <form class="demo-form" method="POST" action="/demo/login">
+      <form class="demo-formtwee" method="POST" action="/demo/login">
         <label class="demo-label">E-mail</label>
         <input class="demo-input" name="email" type="email"
           placeholder="bv. jan@bedrijf.be"

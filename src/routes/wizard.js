@@ -457,10 +457,10 @@ router.get("/wizard/reference/rooster", async (req, res) => {
 
   return res.send(
     layoutDemo(
-      "DEMO — PATROON",
+      "DEMO — ROOSTER INVULLEN.",
       `
-        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 3 STAPPEN</div>
-        <h1 class="demo-title">PATROON.</h1>
+        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 5 STAPPEN</div>
+        <h1 class="demo-title">ROOSTER INVULLEN.</h1>
 
         <p class="demo-muted">Werknemer: <b>${escapeHtml(employeeLabel(emp))}</b></p>
         <p class="demo-lead">
@@ -610,7 +610,7 @@ router.get("/wizard/reference/kalender", async (req, res) => {
       "DEMO — KALENDER",
       `
         <div class="demo-kicker">DEMO UITTESTEN <BR> IN 5 STAPPEN</div>
-        <h1 class="demo-title">KALENDER.</h1>
+        <h1 class="demo-title">KALENDER INVULLEN.</h1>
 
         <p class="demo-muted">Werknemer: <b>${escapeHtml(employeeLabel(emp))}</b></p>
 

@@ -134,8 +134,8 @@ router.get("/tags", async (req, res) => {
     layoutDemo(
       "PUNCTOO — SCANTAG",
       `
-        <div class="demo-kicker">PUNCTOO — SCANTAG</div>
-        <h1 class="demo-title">TAGS.</h1>
+        <div class="demo-kicker">SCANTAGS</div>
+      
 
         <p class="demo-lead">
           Dit zijn de echte ScanTag QR’s (IN/OUT) volgens de vaste layout.

@@ -10,9 +10,12 @@ const router = express.Router();
 const TZ = "Europe/Brussels";
 const COOLDOWN_MINUTES = 5;
 
+// 0 = geen redirect (blijft op scherm)
+// bv 1200 = 1.2s en dan terug naar /t/:tagId (kies actie)
 const AUTO_REDIRECT_MS_OK = 1200;
 const AUTO_REDIRECT_MS_NOTOK = 1500;
 
+// Cache of scan_events extra kolommen bestaan (ignored/source)
 let scanEventsHasIgnoredCols = null;
 
 async function detectScanEventsColumns() {
@@ -151,6 +154,10 @@ async function insertScanEvent({
   );
 }
 
+/* =========================
+   UI helpers
+   ========================= */
+
 function renderImageOnly({ ok, redirectUrl, redirectMs }) {
   const img = ok ? "/static/scan-ok.png" : "/static/scan-notok.png";
   const sec = redirectMs > 0 ? Math.round(redirectMs / 1000) : 0;
@@ -180,8 +187,38 @@ function renderImageOnly({ ok, redirectUrl, redirectMs }) {
 </html>`;
 }
 
+function renderChoosePage(tag) {
+  // Optioneel keuzescherm (handig bij testen)
+  return `<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scan — ${escapeHtml(tag.company_name)}</title>
+  <style>
+    html, body { margin:0; padding:0; height:100%; background:#FDC500; font-family: Arial, Helvetica, sans-serif; }
+    .wrap { height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; box-sizing:border-box; }
+    .logo { width: 240px; max-width: 80vw; margin-bottom: 22px; }
+    .btnrow { display:flex; gap:12px; }
+    a { display:inline-block; width: 160px; max-width: 40vw; padding:12px 0; border-radius:12px; text-decoration:none; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+    .primary { background:#000; color:#fff; }
+    .ghost { border:2px solid #000; color:#000; background:transparent; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <img class="logo" src="/static/logo_punctoo_groot_opgeel.png" alt="Punctoo" />
+    <div class="btnrow">
+      <a class="primary" href="/t/${tag.tag_id}/in">IN</a>
+      <a class="ghost" href="/t/${tag.tag_id}/out">OUT</a>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 function renderPairPage(tag, direction) {
-  // ✅ EXACT mockup: logo boven, 2 regels tekst, input, knop onder elkaar
+  // ✅ EXACT mockup: input boven knop
   return `<!doctype html>
 <html lang="nl">
 <head>
@@ -193,15 +230,15 @@ function renderPairPage(tag, direction) {
     .wrap { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; text-align:center; padding:26px 18px; box-sizing:border-box; }
     .logo { width:240px; max-width:80vw; height:auto; margin-top:10px; margin-bottom:22px; }
     .title { font-size:14px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px; }
-    .subtitle { font-size:14px; margin-bottom:16px; }
-    .input { width:240px; max-width:86vw; padding:12px; font-size:16px; border-radius:8px; border: 2px solid #000; box-sizing:border-box; text-align:center; }
-    .btn { margin-top:14px; width:240px; max-width:86vw; padding:12px; border-radius:10px; border:none; background:#000; color:#fff; font-weight:700; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }
+    .subtitle { font-size:14px; margin-bottom:18px; }
+    form { display:flex; flex-direction:column; align-items:center; gap:14px; width:100%; }
+    .input { width:260px; max-width:86vw; padding:12px; font-size:16px; border-radius:8px; border:2px solid #000; box-sizing:border-box; text-align:center; background:#fff; }
+    .btn { width:260px; max-width:86vw; padding:12px; border-radius:12px; border:none; background:#000; color:#fff; font-weight:700; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <img class="logo" src="/static/logo_punctoo_groot_opgeel.png" alt="Punctoo" />
-
     <div class="title">KOPPELEN SMARTPHONE</div>
     <div class="subtitle">Geef éénmalig ID:</div>
 
@@ -217,17 +254,52 @@ function renderPairPage(tag, direction) {
 </html>`;
 }
 
+/* =========================
+   Routes
+   ========================= */
+
+// Keuze IN/OUT (optioneel)
+router.get("/t/:tagId", async (req, res) => {
+  const tagId = Number(req.params.tagId);
+  const tag = await resolveTag(tagId);
+
+  if (!tag) {
+    return res.status(404).send(
+      renderImageOnly({
+        ok: false,
+        redirectUrl: "/",
+        redirectMs: AUTO_REDIRECT_MS_NOTOK,
+      })
+    );
+  }
+
+  return res.send(renderChoosePage(tag));
+});
+
+// IN/OUT (crash-proof)
 router.get("/t/:tagId/:direction", async (req, res) => {
   const tagId = Number(req.params.tagId);
   const direction = String(req.params.direction || "").toLowerCase();
-  if (direction !== "in" && direction !== "out") return res.status(404).send("Not found");
+
+  if (direction !== "in" && direction !== "out") {
+    return res.status(404).send("Not found");
+  }
 
   const tag = await resolveTag(tagId);
-  if (!tag) return res.status(404).send("Not found");
+  if (!tag) {
+    return res.status(404).send(
+      renderImageOnly({
+        ok: false,
+        redirectUrl: "/",
+        redirectMs: AUTO_REDIRECT_MS_NOTOK,
+      })
+    );
+  }
 
   const token = req.cookies[COOKIE_NAME];
   const bound = await getBoundEmployee(tag.company_id, token);
 
+  // Niet gekoppeld → pairing UI
   if (!bound) {
     return res.send(renderPairPage(tag, direction));
   }
@@ -235,6 +307,7 @@ router.get("/t/:tagId/:direction", async (req, res) => {
   const ts = nowTs();
   const dirDb = direction.toUpperCase();
 
+  // Cooldown check
   const last = await getLastNonIgnoredEvent(bound.employee_id);
   if (last && last.timestamp) {
     const lastTs = new Date(last.timestamp);
@@ -242,6 +315,8 @@ router.get("/t/:tagId/:direction", async (req, res) => {
 
     if (diffMin >= 0 && diffMin < COOLDOWN_MINUTES) {
       const cols = await detectScanEventsColumns();
+
+      // log ignored (indien kolommen bestaan)
       if (cols.has_ignored && cols.has_ignored_reason) {
         await insertScanEvent({
           companyId: tag.company_id,
@@ -253,16 +328,18 @@ router.get("/t/:tagId/:direction", async (req, res) => {
           ignored_reason: "COOLDOWN_5_MIN",
         });
       }
+
       return res.send(
         renderImageOnly({
           ok: false,
-          redirectUrl: `/t/${tag.tag_id}/in`,
+          redirectUrl: `/t/${tag.tag_id}/${direction}`,
           redirectMs: AUTO_REDIRECT_MS_NOTOK,
         })
       );
     }
   }
 
+  // log scan
   await insertScanEvent({
     companyId: tag.company_id,
     employeeId: bound.employee_id,
@@ -276,7 +353,7 @@ router.get("/t/:tagId/:direction", async (req, res) => {
   return res.send(
     renderImageOnly({
       ok: true,
-      redirectUrl: `/t/${tag.tag_id}/in`,
+      redirectUrl: `/t/${tag.tag_id}/${direction}`,
       redirectMs: AUTO_REDIRECT_MS_OK,
     })
   );

@@ -134,12 +134,11 @@ router.get("/tags", async (req, res) => {
     layoutDemo(
       "PUNCTOO — SCANTAG",
       `
-        <div class="demo-kicker">SCANTAGS</div>
+        <div class="demo-kicker">JOUW SCANTAG.</div>
       
 
         <p class="demo-lead">
-          Dit zijn de echte ScanTag QR’s (IN/OUT) volgens de vaste layout.
-          Print via PDF of test door te scannen vanaf je scherm.
+         
         </p>
 
        
@@ -192,7 +191,7 @@ router.get("/tags", async (req, res) => {
         </div>
 
         <p class="demo-muted" style="margin-top:18px;">
-          <b>Werknemers (codes)</b> — deze codes worden gebruikt na scan (device binding / identificatie).
+          <b>Gebruik onderstaande codes bij de eerste scan-IN.</b>
         </p>
 
         <div class="demo-tablewrap" style="margin-top:10px;">

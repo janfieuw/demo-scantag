@@ -157,7 +157,7 @@
 
 .demo-input {
   width: 100%;
-  max-width: 360px; /* forms blijven mooi compact */
+  max-width: 760px; /* forms blijven mooi compact */
   box-sizing: border-box;
   height: 36px;
   border-radius: 6px;

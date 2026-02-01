@@ -2,7 +2,7 @@
 const express = require("express");
 const { DateTime } = require("luxon");
 const { get, run } = require("../db");
-const { COOKIE_NAME, IS_PROD } = require("../config");
+const { COOKIE_NAME } = require("../config");
 const { layoutDemo, escapeHtml } = require("../ui/layout");
 
 const router = express.Router();
@@ -188,6 +188,7 @@ function renderImageOnly({ ok, redirectUrl, redirectMs }) {
 }
 
 function renderChoosePage(tag) {
+  // Optioneel keuzescherm (blijft handig voor testen)
   return layoutDemo(
     `ScanTag — ${tag.company_name}`,
     `
@@ -205,31 +206,51 @@ function renderChoosePage(tag) {
 }
 
 function renderPairPage(tag, direction) {
-  const dirUp = direction.toUpperCase();
-
+  // ✅ Alles centraal, geen VDGI/IN/ID-label, geen TERUG
   return layoutDemo(
     `Koppelen — ${tag.company_name}`,
     `
-      <div class="demo-kicker">${escapeHtml(tag.company_name)}</div>
-      <h1 class="demo-title">${escapeHtml(dirUp)}.</h1>
+      <div style="
+        min-height: 70vh;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        text-align:center;
+      ">
+        <img
+          src="/static/logo_punctoo_groot_opgeel.png"
+          alt="Punctoo"
+          style="width:240px; max-width:80vw; height:auto; margin-bottom:18px;"
+        />
 
-      <p class="demo-lead">
-        KOPPELEN SMARTPHONE<br/>
-        Geef éénmalig ID:
-      </p>
-
-      <form class="demo-form" method="POST" action="/pair">
-        <input type="hidden" name="tagId" value="${tag.tag_id}" />
-        <input type="hidden" name="direction" value="${escapeHtml(direction)}" />
-
-        <label class="demo-label">ID</label>
-        <input class="demo-input" name="employeeCode" placeholder="bv. 981d14c0" required />
-
-        <div class="demo-actions" style="margin-top:10px;">
-          <button class="demo-btn primary" type="submit">BEVESTIG</button>
-          <a class="demo-btn ghost" href="/t/${tag.tag_id}">TERUG</a>
+        <div style="font-size:14px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px;">
+          KOPPELEN SMARTPHONE
         </div>
-      </form>
+
+        <div style="font-size:14px; margin-bottom:14px;">
+          Geef éénmalig ID:
+        </div>
+
+        <form method="POST" action="/pair"
+              style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%;">
+          <input type="hidden" name="tagId" value="${tag.tag_id}" />
+          <input type="hidden" name="direction" value="${escapeHtml(direction)}" />
+
+          <input
+            class="demo-input"
+            name="employeeCode"
+            placeholder="bv. 981d14c0"
+            required
+            autofocus
+            style="max-width:260px; text-align:center;"
+          />
+
+          <button class="demo-btn primary" type="submit" style="min-width:180px;">
+            BEVESTIG
+          </button>
+        </form>
+      </div>
     `
   );
 }
@@ -242,6 +263,7 @@ function renderPairPage(tag, direction) {
 router.get("/t/:tagId", async (req, res) => {
   const tagId = Number(req.params.tagId);
   const tag = await resolveTag(tagId);
+
   if (!tag) {
     return res
       .status(404)
@@ -253,6 +275,7 @@ router.get("/t/:tagId", async (req, res) => {
         })
       );
   }
+
   return res.send(renderChoosePage(tag));
 });
 
@@ -283,6 +306,7 @@ router.get("/t/:tagId/:direction", async (req, res) => {
   const bound = await getBoundEmployee(tag.company_id, token);
 
   if (!bound) {
+    // Niet gekoppeld → toon pairing UI
     return res.send(renderPairPage(tag, direction));
   }
 

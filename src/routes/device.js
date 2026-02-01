@@ -188,7 +188,6 @@ function renderImageOnly({ ok, redirectUrl, redirectMs }) {
 }
 
 function renderChoosePage(tag) {
-  // Optioneel keuzescherm (blijft handig voor testen)
   return layoutDemo(
     `ScanTag — ${tag.company_name}`,
     `
@@ -206,7 +205,9 @@ function renderChoosePage(tag) {
 }
 
 function renderPairPage(tag, direction) {
-  // ✅ Alles centraal, geen VDGI/IN/ID-label, geen TERUG
+  // ✅ Klassieke manier: absolute URL via /static
+  const LOGO_SRC = "/static/logo_punctoo_groot_opgeel.png";
+
   return layoutDemo(
     `Koppelen — ${tag.company_name}`,
     `
@@ -219,7 +220,7 @@ function renderPairPage(tag, direction) {
         text-align:center;
       ">
         <img
-          src="src/styles/logo_punctoo_groot_opgeel.png"
+          src="${LOGO_SRC}"
           alt="Punctoo"
           style="width:240px; max-width:80vw; height:auto; margin-bottom:18px;"
         />
@@ -259,7 +260,6 @@ function renderPairPage(tag, direction) {
    Routes
    ========================= */
 
-// Kies IN/OUT (optioneel entrypoint)
 router.get("/t/:tagId", async (req, res) => {
   const tagId = Number(req.params.tagId);
   const tag = await resolveTag(tagId);
@@ -279,7 +279,7 @@ router.get("/t/:tagId", async (req, res) => {
   return res.send(renderChoosePage(tag));
 });
 
-// IN/OUT (crash-proof, validate in code)
+// IN/OUT (crash-proof: geen regex in pad)
 router.get("/t/:tagId/:direction", async (req, res) => {
   const tagId = Number(req.params.tagId);
   const direction = String(req.params.direction || "").toLowerCase();
@@ -301,26 +301,22 @@ router.get("/t/:tagId/:direction", async (req, res) => {
       );
   }
 
-  // Binding check
   const token = req.cookies[COOKIE_NAME];
   const bound = await getBoundEmployee(tag.company_id, token);
 
   if (!bound) {
-    // Niet gekoppeld → toon pairing UI
     return res.send(renderPairPage(tag, direction));
   }
 
   const ts = nowTs();
   const dirDb = direction.toUpperCase();
 
-  // Cooldown check
   const last = await getLastNonIgnoredEvent(bound.employee_id);
   if (last && last.timestamp) {
     const lastTs = new Date(last.timestamp);
     const diffMin = (ts - lastTs) / 60000;
 
     if (diffMin >= 0 && diffMin < COOLDOWN_MINUTES) {
-      // ignored
       const cols = await detectScanEventsColumns();
       if (cols.has_ignored && cols.has_ignored_reason) {
         await insertScanEvent({
@@ -344,7 +340,6 @@ router.get("/t/:tagId/:direction", async (req, res) => {
     }
   }
 
-  // Log scan
   await insertScanEvent({
     companyId: tag.company_id,
     employeeId: bound.employee_id,

@@ -142,11 +142,7 @@ router.get("/tags", async (req, res) => {
           Print via PDF of test door te scannen vanaf je scherm.
         </p>
 
-        <p class="demo-muted">
-          Onderneming: <b>${escapeHtml(company.name)}</b><br>
-          ScanTag: <b>${escapeHtml(tag.name || "ScanTag")}</b><br>
-          Laatst bijgewerkt: <b>${escapeHtml(DateTime.now().setZone(TZ).toFormat("dd/LL/yyyy HH:mm"))}</b>
-        </p>
+       
 
         <div class="demo-actions" style="margin-top:12px;">
           <a class="demo-btn ghost" href="/wizard/reference">TERUG</a>

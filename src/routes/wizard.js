@@ -118,7 +118,7 @@ router.get("/wizard/company", async (req, res) => {
           <h1 class="demo-title">STAP 2: JOUW ONDERNEMING.</h1>
           <p class="demo-lead">Vul de naam van jouw onderneming in.</p>
 
-          <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
+          <p class="demo-muted"><b>${escapeHtml(company.name)}</b></p>
 
           <div class="demo-actions">
             <a class="demo-btn primary" href="/wizard/employees">VOLGENDE</a>

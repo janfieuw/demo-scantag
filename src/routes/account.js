@@ -93,7 +93,7 @@ function renderLogin({ error = "", email = "" } = {}) {
   return renderWithDemoLayout(
     "DEMO — LOGIN",
     `
-      <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
+      <div class="demo-kicker">DEMO UITTESTEN <br> IN 4 STAPPEN</div>
       <div class="demo-title">ACCOUNT.</div>
 
       <p class="demo-lead">
@@ -131,7 +131,7 @@ function renderSignup({ error = "", email = "" } = {}) {
   return renderWithDemoLayout(
     "DEMO — ACCOUNT AANMAKEN",
     `
-      <div class="demo-kicker">DEMO UITTESTEN — IN 3 STAPPEN</div>
+      <div class="demo-kicker">DEMO UITTESTEN <br> IN 3 STAPPEN</div>
       <div class="demo-title">ACCOUNT AANMAKEN.</div>
 
       <p class="demo-lead">

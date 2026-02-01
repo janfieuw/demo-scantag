@@ -239,7 +239,7 @@ function renderPairPage(tag, direction) {
 <body>
   <div class="wrap">
     <img class="logo" src="/static/logo_punctoo_groot_opgeel.png" alt="Punctoo" />
-    <div class="title">SCAN GESLAAGD !</div>
+    <div class="title">KOPPELEN SMARTPHONE</div>
     <div class="subtitle">Geef éénmalig ID:</div>
 
     <form method="POST" action="/pair">

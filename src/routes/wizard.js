@@ -137,7 +137,7 @@ router.get("/wizard/company", async (req, res) => {
         <p class="demo-lead">Vul de naam van jouw onderneming in.</p>
 
         <form class="demo-form" method="POST" action="/wizard/company">
-          <label class="demo-label" for="name">Onderneming</label>
+         
           <input class="demo-input" id="name" name="name" required />
 
           <div class="demo-actions">

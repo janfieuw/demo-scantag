@@ -93,8 +93,8 @@ function renderLogin({ error = "", email = "" } = {}) {
   return renderWithDemoLayout(
     "DEMO — LOGIN",
     `
-      <div class="demo-kicker">DEMO UITTESTEN <br> IN 4 STAPPEN</div>
-      <div class="demo-title">ACCOUNT.</div>
+      <div class="demo-kicker">DEMO UITTESTEN <br> IN 5 STAPPEN</div>
+      <div class="demo-title">Stap1: ACCOUNT AANMAKEN.</div>
 
       <p class="demo-lead">
         Login: vul je e-mailadres en paswoord in.<br />
@@ -131,8 +131,8 @@ function renderSignup({ error = "", email = "" } = {}) {
   return renderWithDemoLayout(
     "DEMO — ACCOUNT AANMAKEN",
     `
-      <div class="demo-kicker">DEMO UITTESTEN <br> IN 3 STAPPEN</div>
-      <div class="demo-title">ACCOUNT AANMAKEN.</div>
+      <div class="demo-kicker">DEMO UITTESTEN <br> IN 5 STAPPEN</div>
+      <div class="demo-title">Stap1: ACCOUNT AANMAKEN.</div>
 
       <p class="demo-lead">
         Maak een account aan. Kies een e-mailadres als login en vul je paswoord twee keer in.<br />

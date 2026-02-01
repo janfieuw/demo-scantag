@@ -82,13 +82,6 @@ async function getBoundEmployee(companyId, token) {
   );
 }
 
-function boundEmployeeLabel(emp) {
-  const fn = String(emp.first_name || "").trim();
-  const ln = String(emp.last_name || "").trim();
-  if (ln || fn) return `${ln} ${fn}`.trim();
-  return String(emp.display_name || "").trim() || `#${emp.employee_id}`;
-}
-
 async function getLastNonIgnoredEvent(employeeId) {
   const cols = await detectScanEventsColumns();
 
@@ -213,6 +206,7 @@ function renderChoosePage(tag) {
 
 function renderPairPage(tag, direction) {
   const dirUp = direction.toUpperCase();
+
   return layoutDemo(
     `Koppelen — ${tag.company_name}`,
     `
@@ -221,14 +215,14 @@ function renderPairPage(tag, direction) {
 
       <p class="demo-lead">
         KOPPELEN SMARTPHONE<br/>
-        Geef éénmalig ID (activatiecode):
+        Geef éénmalig ID:
       </p>
 
       <form class="demo-form" method="POST" action="/pair">
         <input type="hidden" name="tagId" value="${tag.tag_id}" />
         <input type="hidden" name="direction" value="${escapeHtml(direction)}" />
 
-        <label class="demo-label">Activatiecode</label>
+        <label class="demo-label">ID</label>
         <input class="demo-input" name="employeeCode" placeholder="bv. 981d14c0" required />
 
         <div class="demo-actions" style="margin-top:10px;">
@@ -236,10 +230,6 @@ function renderPairPage(tag, direction) {
           <a class="demo-btn ghost" href="/t/${tag.tag_id}">TERUG</a>
         </div>
       </form>
-
-      <p class="demo-muted" style="margin-top:14px;">
-        Tip: je vindt de activatiecodes op de TAGS pagina.
-      </p>
     `
   );
 }
@@ -248,19 +238,25 @@ function renderPairPage(tag, direction) {
    Routes
    ========================= */
 
-// QR entry point: kies IN/OUT
+// Kies IN/OUT (optioneel entrypoint)
 router.get("/t/:tagId", async (req, res) => {
   const tagId = Number(req.params.tagId);
   const tag = await resolveTag(tagId);
   if (!tag) {
     return res
       .status(404)
-      .send(renderImageOnly({ ok: false, redirectUrl: "/", redirectMs: AUTO_REDIRECT_MS_NOTOK }));
+      .send(
+        renderImageOnly({
+          ok: false,
+          redirectUrl: "/",
+          redirectMs: AUTO_REDIRECT_MS_NOTOK,
+        })
+      );
   }
   return res.send(renderChoosePage(tag));
 });
 
-// IN/OUT (geen regex in path → crash-proof)
+// IN/OUT (crash-proof, validate in code)
 router.get("/t/:tagId/:direction", async (req, res) => {
   const tagId = Number(req.params.tagId);
   const direction = String(req.params.direction || "").toLowerCase();
@@ -273,15 +269,20 @@ router.get("/t/:tagId/:direction", async (req, res) => {
   if (!tag) {
     return res
       .status(404)
-      .send(renderImageOnly({ ok: false, redirectUrl: "/", redirectMs: AUTO_REDIRECT_MS_NOTOK }));
+      .send(
+        renderImageOnly({
+          ok: false,
+          redirectUrl: "/",
+          redirectMs: AUTO_REDIRECT_MS_NOTOK,
+        })
+      );
   }
 
-  // Koppeling check
+  // Binding check
   const token = req.cookies[COOKIE_NAME];
   const bound = await getBoundEmployee(tag.company_id, token);
 
   if (!bound) {
-    // Niet gekoppeld → toon pairing UI
     return res.send(renderPairPage(tag, direction));
   }
 
@@ -295,7 +296,7 @@ router.get("/t/:tagId/:direction", async (req, res) => {
     const diffMin = (ts - lastTs) / 60000;
 
     if (diffMin >= 0 && diffMin < COOLDOWN_MINUTES) {
-      // genegeerd
+      // ignored
       const cols = await detectScanEventsColumns();
       if (cols.has_ignored && cols.has_ignored_reason) {
         await insertScanEvent({
@@ -309,7 +310,6 @@ router.get("/t/:tagId/:direction", async (req, res) => {
         });
       }
 
-      // ❌ notok image (scan genegeerd)
       return res.send(
         renderImageOnly({
           ok: false,
@@ -331,7 +331,6 @@ router.get("/t/:tagId/:direction", async (req, res) => {
     ignored_reason: null,
   });
 
-  // ✅ ok image
   return res.send(
     renderImageOnly({
       ok: true,

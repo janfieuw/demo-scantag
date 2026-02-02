@@ -10,12 +10,10 @@ const router = express.Router();
 const TZ = "Europe/Brussels";
 const COOLDOWN_MINUTES = 5;
 
-// 0 = geen redirect (blijft op scherm)
-// bv 1200 = 1.2s en dan terug naar /t/:tagId (kies actie)
+// 0 = geen redirect
 const AUTO_REDIRECT_MS_OK = 1200;
 const AUTO_REDIRECT_MS_NOTOK = 1500;
 
-// Cache of scan_events extra kolommen bestaan (ignored/source)
 let scanEventsHasIgnoredCols = null;
 
 async function detectScanEventsColumns() {
@@ -187,38 +185,8 @@ function renderImageOnly({ ok, redirectUrl, redirectMs }) {
 </html>`;
 }
 
-function renderChoosePage(tag) {
-  // Optioneel keuzescherm (handig bij testen)
-  return `<!doctype html>
-<html lang="nl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Scan — ${escapeHtml(tag.company_name)}</title>
-  <style>
-    html, body { margin:0; padding:0; height:100%; background:#FDC500; font-family: Arial, Helvetica, sans-serif; }
-    .wrap { height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; box-sizing:border-box; }
-    .logo { width: 240px; max-width: 80vw; margin-bottom: 22px; }
-    .btnrow { display:flex; gap:12px; }
-    a { display:inline-block; width: 160px; max-width: 40vw; padding:12px 0; border-radius:12px; text-decoration:none; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
-    .primary { background:#000; color:#fff; }
-    .ghost { border:2px solid #000; color:#000; background:transparent; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <img class="logo" src="/static/logo_punctoo_groot_opgeel.png" alt="Punctoo" />
-    <div class="btnrow">
-      <a class="primary" href="/t/${tag.tag_id}/in">IN</a>
-      <a class="ghost" href="/t/${tag.tag_id}/out">OUT</a>
-    </div>
-  </div>
-</body>
-</html>`;
-}
-
 function renderPairPage(tag, direction) {
-  // ✅ EXACT mockup: input boven knop
+  // Pair UI: input boven knop, gecentreerd
   return `<!doctype html>
 <html lang="nl">
 <head>
@@ -258,48 +226,18 @@ function renderPairPage(tag, direction) {
    Routes
    ========================= */
 
-// Keuze IN/OUT (optioneel)
-router.get("/t/:tagId", async (req, res) => {
-  const tagId = Number(req.params.tagId);
-  const tag = await resolveTag(tagId);
-
-  if (!tag) {
-    return res.status(404).send(
-      renderImageOnly({
-        ok: false,
-        redirectUrl: "/",
-        redirectMs: AUTO_REDIRECT_MS_NOTOK,
-      })
-    );
-  }
-
-  return res.send(renderChoosePage(tag));
-});
-
-// IN/OUT (crash-proof)
+// IN/OUT
 router.get("/t/:tagId/:direction", async (req, res) => {
   const tagId = Number(req.params.tagId);
   const direction = String(req.params.direction || "").toLowerCase();
-
-  if (direction !== "in" && direction !== "out") {
-    return res.status(404).send("Not found");
-  }
+  if (direction !== "in" && direction !== "out") return res.status(404).send("Not found");
 
   const tag = await resolveTag(tagId);
-  if (!tag) {
-    return res.status(404).send(
-      renderImageOnly({
-        ok: false,
-        redirectUrl: "/",
-        redirectMs: AUTO_REDIRECT_MS_NOTOK,
-      })
-    );
-  }
+  if (!tag) return res.status(404).send("Not found");
 
   const token = req.cookies[COOKIE_NAME];
   const bound = await getBoundEmployee(tag.company_id, token);
 
-  // Niet gekoppeld → pairing UI
   if (!bound) {
     return res.send(renderPairPage(tag, direction));
   }
@@ -307,39 +245,40 @@ router.get("/t/:tagId/:direction", async (req, res) => {
   const ts = nowTs();
   const dirDb = direction.toUpperCase();
 
-  // Cooldown check
-  const last = await getLastNonIgnoredEvent(bound.employee_id);
-  if (last && last.timestamp) {
-    const lastTs = new Date(last.timestamp);
-    const diffMin = (ts - lastTs) / 60000;
+  // ✅ paired=1 => cooldown overslaan (zodat koppelen altijd meteen OK geeft)
+  const paired = String(req.query.paired || "") === "1";
 
-    if (diffMin >= 0 && diffMin < COOLDOWN_MINUTES) {
-      const cols = await detectScanEventsColumns();
+  if (!paired) {
+    const last = await getLastNonIgnoredEvent(bound.employee_id);
+    if (last && last.timestamp) {
+      const lastTs = new Date(last.timestamp);
+      const diffMin = (ts - lastTs) / 60000;
 
-      // log ignored (indien kolommen bestaan)
-      if (cols.has_ignored && cols.has_ignored_reason) {
-        await insertScanEvent({
-          companyId: tag.company_id,
-          employeeId: bound.employee_id,
-          scantagId: tag.tag_id,
-          direction: dirDb,
-          ts,
-          ignored: true,
-          ignored_reason: "COOLDOWN_5_MIN",
-        });
+      if (diffMin >= 0 && diffMin < COOLDOWN_MINUTES) {
+        const cols = await detectScanEventsColumns();
+        if (cols.has_ignored && cols.has_ignored_reason) {
+          await insertScanEvent({
+            companyId: tag.company_id,
+            employeeId: bound.employee_id,
+            scantagId: tag.tag_id,
+            direction: dirDb,
+            ts,
+            ignored: true,
+            ignored_reason: "COOLDOWN_5_MIN",
+          });
+        }
+
+        return res.send(
+          renderImageOnly({
+            ok: false,
+            redirectUrl: `/t/${tag.tag_id}/${direction}`,
+            redirectMs: AUTO_REDIRECT_MS_NOTOK,
+          })
+        );
       }
-
-      return res.send(
-        renderImageOnly({
-          ok: false,
-          redirectUrl: `/t/${tag.tag_id}/${direction}`,
-          redirectMs: AUTO_REDIRECT_MS_NOTOK,
-        })
-      );
     }
   }
 
-  // log scan
   await insertScanEvent({
     companyId: tag.company_id,
     employeeId: bound.employee_id,

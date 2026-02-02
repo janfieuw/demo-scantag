@@ -3,7 +3,7 @@ const express = require("express");
 const crypto = require("crypto");
 const { get, run } = require("../db");
 const { COOKIE_NAME, IS_PROD } = require("../config");
-const { layout, escapeHtml } = require("../ui/layout");
+const { layout } = require("../ui/layout");
 const { cardHeader } = require("../ui/components");
 
 const router = express.Router();
@@ -24,8 +24,7 @@ async function resolveTag(tagId) {
 
 router.post("/pair", async (req, res) => {
   const tagId = Number(req.body.tagId);
-  const employeeCodeRaw = String(req.body.employeeCode || "").trim(); // dit is de activatiecode (scan_code)
-  const employeeScanCode = employeeCodeRaw; // keep exact
+  const employeeCodeRaw = String(req.body.employeeCode || "").trim(); // activatiecode
   const directionRaw = String(req.body.direction || "in").trim().toLowerCase();
   const direction = directionRaw === "out" ? "out" : "in";
 
@@ -36,15 +35,14 @@ router.post("/pair", async (req, res) => {
       .send(layout("Onbekend", `<div class="card"><h1>Onbekende tag</h1></div>`));
   }
 
-  // ✅ Zoek werknemer op activatiecode: employees.scan_code
-  // (case-insensitive voor veiligheid)
+  // ✅ zoek op scan_code (activatiecode)
   const emp = await get(
     `SELECT id, scan_code
      FROM employees
      WHERE company_id = $1
        AND UPPER(scan_code) = UPPER($2)
      LIMIT 1`,
-    [tag.company_id, employeeScanCode]
+    [tag.company_id, employeeCodeRaw]
   );
 
   if (!emp) {
@@ -83,8 +81,8 @@ router.post("/pair", async (req, res) => {
     maxAge: 1000 * 60 * 60 * 24 * 365,
   });
 
-  // ga verder naar IN of OUT die de gebruiker wilde
-  res.redirect(`/t/${tag.tag_id}/${direction}`);
+  // ✅ Belangrijk: paired=1 -> device.js slaat cooldown over
+  res.redirect(`/t/${tag.tag_id}/${direction}?paired=1`);
 });
 
 module.exports = router;

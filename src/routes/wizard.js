@@ -200,8 +200,8 @@ router.get("/wizard/employees", async (req, res) => {
         <h1 class="demo-title">STAP 3: WERKNEMERS.</h1>
 
         <p class="demo-lead">
-          De DEMO is beperkt tot <b>twee werknemers</b>.<br>Voeg hieronder <b>twee werknemers</b> toe. <br>Na toevoegen wordt automatisch een <b>activatiecode<b/> gegenereerd.
-          <br></b><i>(Je kan deze codes later altijd opnieuw terugvinden.)</i>.
+          De DEMO is beperkt tot <b>twee werknemers</b>.<br>Voeg hieronder <b>twee werknemers</b> toe. <br>Na toevoegen wordt automatisch een <b>activatiecode</b> gegenereerd.
+          <br><i>(Je kan deze codes later altijd opnieuw terugvinden.)</i>.
         </p>
 
         <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>

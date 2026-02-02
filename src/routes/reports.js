@@ -153,18 +153,16 @@ router.get("/reports", async (req, res) => {
     layoutDemo(
       "RAPPORTEN",
       `
-      <div class="demo-kicker">PUNCTOO — RAPPORTEN</div>
-      <h1 class="demo-title">RAPPORT GENEREREN.</h1>
+      <div class="demo-kicker">RAPPORTEN GENEREREN</div>
+      
 
-      <p class="demo-lead">
-        Er is geen live data. Rapporten bestaan pas nadat je ze genereert.
-      </p>
+      
 
       <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
 
       ${errHtml}
 
-      <form class="demo-form" method="POST" action="/reports/generate">
+      <form class="demo-formtwee" method="POST" action="/reports/generate">
         <label class="demo-label" for="employee_id">Werknemer</label>
         <select class="demo-select" id="employee_id" name="employee_id">
           ${empOptions}

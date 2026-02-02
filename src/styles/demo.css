@@ -81,7 +81,7 @@
 .demo-right-lady {
   position: absolute;
   right: 100px;
-  bottom: -1px;
+  bottom: 100px;
 
   height: 92vh;
   max-height: 980px;

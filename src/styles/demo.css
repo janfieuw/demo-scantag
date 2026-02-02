@@ -64,7 +64,7 @@
 .demo-right {
   position: relative;
   overflow: hidden;
-  background-image: url("/static/demo-wall.jpg");
+  background-image: url("/static/demo-wall.png");
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;

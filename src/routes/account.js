@@ -129,7 +129,7 @@ function renderSignup({ error = "", email = "" } = {}) {
     : "";
 
   return renderWithDemoLayout(
-    "DEMO — ACCOUNT AANMAKEN",
+    "DEMOO — ACCOUNT AANMAKEN",
     `
       <div class="demo-kicker">DEMO UITTESTEN <br> IN 5 STAPPEN</div>
       <p class="demo-lead">

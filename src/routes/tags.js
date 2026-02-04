@@ -138,58 +138,20 @@ router.get("/tags", async (req, res) => {
          
         </p>
      <p class="demo-muted" style="margin-top:18px;">
-        <h1 class="demo-title">Stap 5: SMARTPHONE KOPPELEN.</h1>
-          Laat de werknemer de <b>IN</b> scannen.
+        <h1 class="demo-title">Stap 5/5: SMARTPHONE KOPPELEN.</h1>
+        Download jouw scantag.<br>  
+        Laat de werknemer de <b>IN</b> scannen.
           <br>De onderstaande code zal gebruikt worden op zijn of haar smartphone te koppelen.
         </p>
        
 
         <div class="demo-actions" style="margin-top:12px;">
-          <a class="demo-btn ghost" href="/wizard/reference">TERUG</a>
-          <a class="demo-btn primary" href="/reports">RAPPORTEN</a>
+         
+   
           <a class="demo-btn secondary" href="/scantag/${tag.id}.pdf">DOWNLOAD PDF</a>
         </div>
 
-        <!-- ✅ TEMPLATE + QR overlay -->
-        <div style="margin-top:16px;">
-          <div style="
-            position: relative;
-            width: 100%;
-            max-width: 704px; /* 760px kolom - padding */
-            aspect-ratio: ${TEMPLATE_W} / ${TEMPLATE_H};
-          ">
-            <img
-              src="/static/scantag-template.png"
-              alt="ScanTag template"
-              style="
-                position:absolute; inset:0;
-                width:100%; height:100%;
-                object-fit:contain;
-                display:block;
-              "
-            />
-
-            <img
-              src="${inQrDataUrl}"
-              alt="IN QR"
-              style="
-                position:absolute;
-                ${inStyle}
-                object-fit:contain;
-              "
-            />
-
-            <img
-              src="${outQrDataUrl}"
-              alt="OUT QR"
-              style="
-                position:absolute;
-                ${outStyle}
-                object-fit:contain;
-              "
-            />
-          </div>
-        </div>
+      
 
    
 

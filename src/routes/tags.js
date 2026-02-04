@@ -142,7 +142,8 @@ router.get("/tags", async (req, res) => {
         </p>
      <p class="demo-muted" style="margin-top:18px;">
         <h1 class="demo-title">Stap 5: SMARTPHONE KOPPELEN.</h1>
-          <b>Gebruik onderstaande codes bij de eerste scan-IN.</b>
+          Laat de werknemer de <b>IN</b> scannen.
+          <br>De onderstaande code zal gebruikt worden op zijn of haar smartphone te koppelen.
         </p>
        
 

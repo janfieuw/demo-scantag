@@ -133,9 +133,13 @@ function renderSignup({ error = "", email = "" } = {}) {
     `
       <div class="demo-kicker">DEMO UITTESTEN <br> IN 5 STAPPEN</div>
       <p class="demo-lead">
-        Wat we gaan doen:
-        <LI> we gaan...
-        <LI> daarna...
+        <b>Deze demo toont hoe Punctoo werkt in de praktijk.</b>
+<br>Je doorloopt in 5 stappen het volledige proces:
+<br>van account en werknemers aanmaken tot het scannen en opmaken van een rapport.
+<br>Zo zie je meteen hoe eenvoudig, snel en foutbestendig Punctoo tijdsregistratie aanpakt.
+<br>
+<br><i>De demo is gelimiteerd tot 2 werknemers en 10 dagen gebruik.</i> 
+
       </p>
       <div class="demo-title">Stap 1: ACCOUNT AANMAKEN.</div>
 

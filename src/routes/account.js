@@ -144,9 +144,9 @@ function renderSignup({ error = "", email = "" } = {}) {
       <div class="demo-title">Stap 1: ACCOUNT AANMAKEN.</div>
 
       <p class="demo-lead">
-        Maak een account aan. <BR>Kies een e-mailadres als login en vul je paswoord twee keer in.<br />
-        Heb je al een account?
-      </p>
+        Maak een account aan. Met dit account kun je later rapporten opvragen.        
+        <BR>Kies een e-mailadres als login en vul je paswoord twee keer in.<br />
+              </p>
 
       ${errorHtml}
 

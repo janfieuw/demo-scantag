@@ -200,8 +200,8 @@ router.get("/wizard/employees", async (req, res) => {
         <h1 class="demo-title">STAP 3: WERKNEMERS.</h1>
 
         <p class="demo-lead">
-          De DEMO is beperkt tot <b>twee werknemers</b>.<br>Voeg hieronder <b>twee werknemers</b> toe. <br>Na toevoegen wordt automatisch een <b>activatiecode</b> gegenereerd.
-          <br><i>(Je kan deze codes later altijd opnieuw terugvinden.)</i>.
+          Voeg hieronder <b>twee werknemers</b> toe. <br>Na toevoegen wordt automatisch een <b>activatiecode</b> gegenereerd.
+          <br><i>Je kan deze codes later altijd opnieuw terugvinden.</i>.
         </p>
 
         <p class="demo-muted">Onderneming: <b>${escapeHtml(company.name)}</b></p>
@@ -239,7 +239,7 @@ router.get("/wizard/employees", async (req, res) => {
         </div>
 
         <div class="demo-actions" style="margin-top:18px;">
-          <a class="demo-btn ghost" href="/wizard/company">TERUG</a>
+          
           ${
             employees.length >= 2
               ? `<a class="demo-btn primary" href="/wizard/reference">VOLGENDE</a>`
@@ -373,7 +373,7 @@ router.get("/wizard/reference", async (req, res) => {
         </div>
 
         <div class="demo-actions" style="margin-top:18px;">
-          <a class="demo-btn ghost" href="/wizard/employees">TERUG</a>
+   
           ${
             allOk
               ? `<a class="demo-btn primary" href="/wizard/qrs">VOLGENDE</a>`

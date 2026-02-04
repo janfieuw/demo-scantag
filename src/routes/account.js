@@ -138,7 +138,7 @@ function renderSignup({ error = "", email = "" } = {}) {
 <br>van account en werknemers aanmaken tot het scannen en opmaken van een rapport.
 <br>Zo zie je meteen hoe eenvoudig, snel en foutbestendig Punctoo tijdsregistratie aanpakt.
 <br>
-<br><i>De demo is gelimiteerd tot 2 werknemers en 10 dagen gebruik.</i> 
+<br><i>De demo is beperkt tot 2 werknemers en 10 dagen gebruik.</i> 
 
       </p>
       <div class="demo-title">Stap 1: ACCOUNT AANMAKEN.</div>

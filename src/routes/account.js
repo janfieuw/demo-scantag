@@ -129,7 +129,7 @@ function renderSignup({ error = "", email = "" } = {}) {
     : "";
 
   return renderWithDemoLayout(
-    "DEMOO — ACCOUNT AANMAKEN",
+    "DEMO — ACCOUNT AANMAKEN",
     `
       <div class="demo-kicker">DEMO UITTESTEN <br> IN 5 STAPPEN</div>
       <p class="demo-lead">
@@ -140,7 +140,7 @@ function renderSignup({ error = "", email = "" } = {}) {
       <div class="demo-title">Stap 1: ACCOUNT AANMAKEN.</div>
 
       <p class="demo-lead">
-        Maak een account aan. Kies een e-mailadres als login en vul je paswoord twee keer in.<br />
+        Maak een account aan. <BR>Kies een e-mailadres als login en vul je paswoord twee keer in.<br />
         Heb je al een account?
         <a href="/demo/login" class="demo-link">Ga naar login.</a>
       </p>

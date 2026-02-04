@@ -165,8 +165,7 @@ function renderSignup({ error = "", email = "" } = {}) {
 
         <div class="demo-actions" style="display:flex; gap:10px;">
           <button class="demo-btn primary" type="submit">ACCOUNT AANMAKEN</button>
-          <a class="demo-btn ghost" href="/demo/login">ANNULEREN</a>
-        </div>
+                  </div>
       </form>
     `,
     { width: 850 } // idem

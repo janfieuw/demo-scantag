@@ -114,7 +114,7 @@ router.get("/wizard/company", async (req, res) => {
       layoutDemo(
         "DEMO — STAP 1",
         `
-          <div class="demo-kicker">DEMO UITTESTEN <BR> IN 5 STAPPEN</div>
+    
           <h1 class="demo-title">STAP 2: JOUW ONDERNEMING.</h1>
           <p class="demo-lead">Vul de naam van jouw onderneming in.</p>
 
@@ -196,7 +196,7 @@ router.get("/wizard/employees", async (req, res) => {
     layoutDemo(
       "DEMO — STAP 2",
       `
-        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 5 STAPPEN</div>
+      
         <h1 class="demo-title">STAP 3: WERKNEMERS.</h1>
 
         <p class="demo-lead">
@@ -351,7 +351,7 @@ router.get("/wizard/reference", async (req, res) => {
     layoutDemo(
       "DEMO — STAP 3",
       `
-        <div class="demo-kicker">DEMO UITTESTEN <BR> IN 5 STAPPEN</div>
+       
         <h1 class="demo-title">STAP 4: REFERENTIETIJDEN.</h1>
 
         <p class="demo-lead">

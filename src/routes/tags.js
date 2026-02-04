@@ -134,10 +134,7 @@ router.get("/tags", async (req, res) => {
     layoutDemo(
       "PUNCTOO — SCANTAG",
       `
-        <div class="demo-kicker">JOUW SCANTAG.</div>
-      
-
-        <p class="demo-lead">
+        
          
         </p>
      <p class="demo-muted" style="margin-top:18px;">

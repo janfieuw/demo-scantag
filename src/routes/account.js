@@ -134,6 +134,8 @@ function renderSignup({ error = "", email = "" } = {}) {
       <div class="demo-kicker">DEMO UITTESTEN <br> IN 5 STAPPEN</div>
       <p class="demo-lead">
         Wat we gaan doen:
+        <LI> we gaan...
+        <LI> daarna...
       </p>
       <div class="demo-title">Stap 1: ACCOUNT AANMAKEN.</div>
 

@@ -94,7 +94,7 @@ function renderLogin({ error = "", email = "" } = {}) {
     "DEMO — LOGIN",
     `
       <div class="demo-kicker">DEMO UITTESTEN <br> IN 5 STAPPEN</div>
-      <div class="demo-title">Stap 1: ACCOUNT AANMAKEN.</div>
+      <div class="demo-title">Stap 1/5: ACCOUNT AANMAKEN.</div>
 
       <p class="demo-lead">
         Login: vul je e-mailadres en paswoord in.<br />

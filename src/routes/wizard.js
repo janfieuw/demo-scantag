@@ -115,7 +115,7 @@ router.get("/wizard/company", async (req, res) => {
         "DEMO — STAP 1",
         `
     
-          <h1 class="demo-title">STAP 2: JOUW ONDERNEMING.</h1>
+          <h1 class="demo-title">STAP 2/5: JOUW ONDERNEMING.</h1>
           <p class="demo-lead">Vul de naam van jouw onderneming in.</p>
 
           <p class="demo-muted"><b>${escapeHtml(company.name)}</b></p>
@@ -133,7 +133,7 @@ router.get("/wizard/company", async (req, res) => {
       "DEMO — STAP 1",
       `
         <div class="demo-kicker">DEMO UITTESTEN <BR> IN 5 STAPPEN</div>
-        <h1 class="demo-title">STAP 2: JOUW ONDERNEMING.</h1>
+        <h1 class="demo-title">STAP 2/5: JOUW ONDERNEMING.</h1>
         <p class="demo-lead">Vul de naam van jouw onderneming in.</p>
 
         <form class="demo-form" method="POST" action="/wizard/company">
@@ -197,7 +197,7 @@ router.get("/wizard/employees", async (req, res) => {
       "DEMO — STAP 2",
       `
       
-        <h1 class="demo-title">STAP 3: WERKNEMERS.</h1>
+        <h1 class="demo-title">STAP 3/5: WERKNEMERS.</h1>
 
         <p class="demo-lead">
           Voeg hieronder <b>twee werknemers</b> toe. <br>Na toevoegen wordt automatisch een <b>activatiecode</b> gegenereerd.
@@ -352,7 +352,7 @@ router.get("/wizard/reference", async (req, res) => {
       "DEMO — STAP 3",
       `
        
-        <h1 class="demo-title">STAP 4: REFERENTIETIJDEN.</h1>
+        <h1 class="demo-title">STAP 4/5: REFERENTIETIJDEN.</h1>
 
         <p class="demo-lead">
         Dit is de verwachte duur na een scan-IN, inclusief eventuele pauzes.<br>

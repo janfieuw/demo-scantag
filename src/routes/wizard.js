@@ -352,11 +352,11 @@ router.get("/wizard/reference", async (req, res) => {
       "DEMO — STAP 3",
       `
         <div class="demo-kicker">DEMO UITTESTEN <BR> IN 5 STAPPEN</div>
-        <h1 class="demo-title">(BELANGRIJKE) STAP 4: REFERENTIETIJDEN.</h1>
+        <h1 class="demo-title">STAP 4: REFERENTIETIJDEN.</h1>
 
         <p class="demo-lead">
         Dit is de verwachte duur na een scan-IN, inclusief eventuele pauzes.<br>
-        De referentie kan elke weekdag gelijk zijn of verschillen per kalenderdag.<br>  
+        De referentietijd kan elke weekdag gelijk zijn of verschillen per kalenderdag.<br>  
         Kies daarom per werknemer <b>Rooster</b> of <b>Kalender</b> en klik op <b>Vul aan</b>.
          <br> Na het opslaan kom je terug naar deze stap.
         </p>

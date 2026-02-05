@@ -169,7 +169,11 @@ router.get("/tags", async (req, res) => {
             <tbody>${empRows}</tbody>
           </table>
         </div>
+        <h1 class="demo-title">SMARTPHONES GEKOPPELD?</h1>
+        Ga voortaan naar www.mypuntoo.be/rapporten en log in om jouw rapporten te zien.<br>
+        Heb je problemen ondervonden? Contacteer ons op support@punctoo.be.
       `
+      
     )
   );
 });

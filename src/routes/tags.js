@@ -139,7 +139,7 @@ router.get("/tags", async (req, res) => {
         </p>
      <p class="demo-muted" style="margin-top:18px;">
         <h1 class="demo-title">Stap 5/5: SMARTPHONE KOPPELEN.</h1>
-        Download jouw scantag.<br>  
+        <b>Download jouw scantag.</b><br><br>  
         Laat de werknemer vervolgens de <b>IN</b> scannen.
           <br>Op de smartphone moet dan de onderstaande code ingevuld worden om smartphone te koppelen.<br>
           Het koppelen van de smartphone is meteen ook de eerste tijdsregistratie.<br>

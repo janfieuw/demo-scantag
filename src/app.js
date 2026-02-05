@@ -24,6 +24,8 @@ function createApp() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
+  app.use("/img", express.static(path.join(__dirname, "img")));
+
 
   // ✅ Static files
   // 1) src/styles → /static

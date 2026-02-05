@@ -58,7 +58,7 @@ function layoutDemo(title, leftHtml, options = {}) {
       </div>
 
       <div class="demo-left-footer">
-        <img class="demo-logo" src="/static/logo_punctoo_groot_opgeel.png" alt="" />
+        <img class="demo-logo" src="/static/logo.png" alt="" />
       </div>
     </div>
 

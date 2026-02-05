@@ -93,7 +93,7 @@ function renderLogin({ error = "", email = "" } = {}) {
   return renderWithDemoLayout(
     "DEMO — LOGIN",
     `
-    <img src="/img/logo_punctoo_groot_opgeel.png" alt="Punctoo" class="demo-logo"/>
+    <img src="/img/logo.png" alt="Punctoo" class="demo-logo"/>
 
     <div class="demo-kicker">DEMO UITTESTEN <br> IN 5 STAPPEN</div>
       <div class="demo-title">Stap 1/5: ACCOUNT AANMAKEN.</div>
